@@ -139,28 +139,28 @@ public:
 
 		for (int i = 1; i < n / 2; i++) {
 			for (int j = 1; j < m; j++) {
-				r_1[i][j] = a_coef * xy_1[i][j] + h2 * xy_1[i - 1][j] + h2 * xy_1[i + 1][j] + k2 * xy_1[i][j + 1] + k2 * xy_1[i][j - 1] + f(x[i], y[j]);
+				r_1[i][j] = a_coef * xy_1[i][j] + h2 * (xy_1[i - 1][j] + xy_1[i + 1][j]) + k2 * (xy_1[i][j + 1] +  xy_1[i][j - 1]) + f(x[i], y[j]);
 				r_max = fmax(r_max, fabs(r_1[i][j]));
 			}
 		}
 		for (int i = 1; i < n / 2 - 1; i++) {
 			for (int j = 1; j < m / 2; j++) {
-				r_2[i][j] = a_coef * xy_2[i][j] + h2 * xy_2[i - 1][j] + h2 * xy_2[i + 1][j] + k2 * xy_2[i][j + 1] + k2 * xy_2[i][j - 1] + f(x[i + n / 2 + 1], y[j]);
+				r_2[i][j] = a_coef * xy_2[i][j] + h2 * (xy_2[i - 1][j] + xy_2[i + 1][j]) + k2 *(xy_2[i][j + 1] + xy_2[i][j - 1]) + f(x[i + n / 2 + 1], y[j]);
 				r_max = fmax(r_max, fabs(r_2[i][j]));
 			}
 		}
 		// невязка на границе двух частей: xy_1 и xy_2
 		int i = n / 2;
 		for (int j = 1; j < m / 2; j++) {
-			r_1[i][j] = a_coef * xy_1[i][j] + h2 * xy_1[i - 1][j] + h2 * xy_2[0][j] +
-				k2 * xy_1[i][j + 1] + k2 * xy_1[i][j - 1] +
+			r_1[i][j] = a_coef * xy_1[i][j] + h2 * (xy_1[i - 1][j] +  xy_2[0][j]) +
+				k2 * (xy_1[i][j + 1] + xy_1[i][j - 1]) +
 				f(x[i], y[j]);
 			r_max = fmax(r_max, fabs(r_1[i][j]));
 		}
 		i = 0;
 		for (int j = 1; j < m / 2; j++) {
-			r_2[i][j] = a_coef * xy_2[i][j] + h2 * xy_1[n / 2][j] + h2 * xy_2[i + 1][j] +
-				k2 * xy_2[i][j + 1] + k2 * xy_2[i][j - 1] +
+			r_2[i][j] = a_coef * xy_2[i][j] + h2 * (xy_1[n / 2][j] +  xy_2[i + 1][j]) +
+				k2 * (xy_2[i][j + 1] +  xy_2[i][j - 1]) +
 				f(x[n / 2 + 1], y[j]);
 			r_max = fmax(r_max, fabs(r_2[i][j]));
 		}
@@ -189,7 +189,7 @@ public:
 		//Именно для задачи Дирихле уравнения Пуассона
 		double M_max = 4 * (1 / h / h + 1 / k / k);
 		double M_min = 0;
-		double tau = 2 / M_max*0.5;  //Временное значение для tau( Нужно оптимизировать его, а именно найти лучшую оценку для собственных чисел)
+		double tau = 2 / M_max*0.99;  //Временное значение для tau( Нужно оптимизировать его, а именно найти лучшую оценку для собственных чисел)
 
 
 		//Заполнение сетки граничными условиями:	
@@ -197,7 +197,7 @@ public:
 		
 		eps_method = eps_user;
 		int iterations = 0;
-		for (iterations; iterations < N_max ; iterations++) {
+		for (iterations; iterations < N_max; iterations++) {
 
 			r_max = 0;
 			eps = 0;
@@ -205,9 +205,15 @@ public:
 			r_s();
 			step(xy_1, r_1, tau,debug_matrix_1,  0);
 			step(xy_2, r_2, tau,debug_matrix_2,  n/2+1);
+			if (eps < 1e-6) {
+				cout << "Шаг " << 1 + iterations << "):\n";
+				cout << "Норма невязки:" << r_max << "\nПогрешность:" << eps << "\nТочность метода:" << eps_method << endl;
+				break;
+			}
+
 			if (iterations % (N_max/5) == 0) {
 				cout << "Шаг " << 1 + iterations << "):\n";
-				cout << "Норма невязки:" << r_max << "\nПогрешность:" << eps << "\nПогрешность метода:" << eps_method << endl;
+				cout << "Норма невязки:" << r_max << "\nПогрешность:" << eps << "\nТочность метода:" << eps_method << endl;
 				//show_matrix(r_1, r_2);
 				
 
@@ -216,7 +222,7 @@ public:
 		
 		cout << "ИТОГ:\n";
 		//show_matrix(xy_1, xy_2);
-		cout << "Норма невязки:" << r_max << "\nПогрешность:" << eps << "\nПогрешность метода:" << eps_method<<endl;
+		cout << "Норма невязки:" << r_max << "\nПогрешность:" << eps << "\nТочность метода:" << eps_method<<endl;
 		cout << "Количество итераций:" << iterations;
 	}
 };
@@ -228,11 +234,11 @@ public:
 
 int main() {
 	system("chcp 1251");
-	int n=12, m = 12;
+	int n=120, m = 120;
 	double a = 0., b = 1., c = 0., d = 1.;
 	int N_max = 40000;
 	Solution sol(a,b,c,d, n, m);
-	sol.process(N_max,1e-6);
+	sol.process(N_max,0.5e-6);
 
 	return 0;
 }
