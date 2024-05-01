@@ -184,12 +184,43 @@ public:
 		eps_method = loc_eps_method;
 	}
 
+	double lambd(int l, int s) {
+		return -(4 / h / h * pow(sin(PI * l / 2 / n), 2) + 4 / k / k * pow(sin(PI*s/2/m), 2));
+	}
+
+	pair<double, double> l_min_max() {
+		double l_min = abs(lambd(1,1));
+		double l_max = abs(lambd(1,1));
+		double tmp = 0;
+		for (int i = 0; i < n; i++) {
+			for (int j = 0; j < m; j++) {
+				tmp = abs(lambd(i, j));
+				l_min = fmin(l_min, tmp);
+				l_max = fmax(l_max, tmp);
+			}
+		}
+		/*
+		for (int i = 0; i < n/2; i++) {
+			for (int j = m / 2; j < m; j++) {
+				tmp = abs(lambd(i, j));
+				l_min = fmin(l_min, tmp);
+				l_max = fmax(l_max, tmp);
+			}
+		}
+		*/
+		return { l_min, l_max};
+	}
+
+
 	void process(int N_max,double eps_user) {
 
 		//Именно для задачи Дирихле уравнения Пуассона
-		double M_max = 4 * (1 / h / h + 1 / k / k);
-		double M_min = 0;
-		double tau = 2 / M_max*0.99;  //Временное значение для tau( Нужно оптимизировать его, а именно найти лучшую оценку для собственных чисел)
+		pair<double, double> l_m_M = l_min_max();
+
+		double M_max = l_m_M.second;
+		double M_min = l_m_M.first;
+
+		double tau = 2 / (M_min+M_max)*0.5;  //Временное значение для tau( Нужно оптимизировать его, а именно найти лучшую оценку для собственных чисел)
 
 
 		//Заполнение сетки граничными условиями:	
@@ -211,7 +242,7 @@ public:
 				break;
 			}
 
-			if (iterations % (N_max/5) == 0) {
+			if (iterations % (N_max/10) == 0) {
 				cout << "Шаг " << 1 + iterations << "):\n";
 				cout << "Норма невязки:" << r_max << "\nПогрешность:" << eps << "\nТочность метода:" << eps_method << endl;
 				//show_matrix(r_1, r_2);
@@ -234,9 +265,9 @@ public:
 
 int main() {
 	system("chcp 1251");
-	int n=120, m = 120;
+	int n = 14, m = 14;
 	double a = 0., b = 1., c = 0., d = 1.;
-	int N_max = 40000;
+	int N_max = 800000;
 	Solution sol(a,b,c,d, n, m);
 	sol.process(N_max,0.5e-6);
 
