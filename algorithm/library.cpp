@@ -2,6 +2,8 @@
 #include <vector>
 #include <cmath>
 
+#include <iostream>
+#include <fstream>
 const double PI = 3.1415926535897932384626433832795028841971693993751058209;
 
 using namespace std;
@@ -15,19 +17,51 @@ double f(double x, double y) {
 	//return -(  (pow(u(x,y),2)*sin(PI*4*x*y) *pow(PI*y,3) )   + (pow(u(x, y), 2) * sin(PI * 4 * x * y) * pow(PI * x, 3)));
 	return -u(x, y) * (pow(sin(2 * PI * x * y), 2) + 2*cos(2 * PI * x * y)) * PI * PI*(y * y + x * x);
 }
+template<class T>
+class csvWriter {
+	string file_name;
+
+public:
+	static void write(string file_name, string path, vector<string> columns, vector<vector<T>> data = {}) {
+		ofstream out;
+		out.open(path + file_name);
+		if (out.is_open())
+		{
+			if (columns.size() != 0) {
+				//add columns name
+				for (int i = 0; i < columns.size(); i++) {
+					out << columns[i];
+					if (i < columns.size() - 1) {
+						out << ',';
+					}
+				}
+				out << '\n';
+			}
+			//add data
+			for (auto line : data) {
+				for (int i = 0; i < line.size();i++) {
+					out << line[i];
+					if (i < line.size() - 1) {
+						out << ',';
+					}
+				}
+				out << '\n';
+			}
+
+		}
+		out.close();
+	}
+};
 
 class Solution {
 	int n, m;
 	double a, b, c, d, h, k;
 
 
-	vector<double> x, y;
-	vector<vector<double>> xy_1, xy_2, r_1, r_2, debug_matrix_1, debug_matrix_2;
+	
 
 	//Переменные для оценки работы метода
-	double eps = 0;
-	double eps_method = 0;
-	double r_max = 0;
+
 	
 
 	bool check_for_multiplicity(int n, int m) {
@@ -68,9 +102,14 @@ class Solution {
 
 	}
 public:
-
+	double eps = 0;
+	double eps_method = 0;
+	double r_max = 0;
+	int res_N = 0;
+	vector<double> x, y;
+	vector<vector<double>> xy_1, xy_2, r_1, r_2, debug_matrix_1, debug_matrix_2;
 	Solution(double a, double b, double c, double  d, int n, int m) {
-		if (!check_for_multiplicity(n, m)) {
+		if (!check_for_multiplicity(n, m) || n<=0 ||m<=0) {
 			throw exception("Сетка не накладывается на область");
 		}
 		this->n = n;
@@ -120,10 +159,6 @@ public:
 	void r_s() {
 		// Невязка:
 
-		//a_coef = -2*(1/h/h+1/k/k)
-		//r^(s) = Ax^(s) - b
-		//r^(s)[i][j] = a v[i][j] +1/h/h * v[i-1][j] + 1/h/h * v[i+1][j] + 1/k/k * v[i][j+1] + 1/k/k * v[i][j-1] + f[i][j] 
-
 		size_t n = x.size() - 1;
 		size_t m = y.size() - 1;
 		double h = x[1] - x[0];
@@ -132,9 +167,6 @@ public:
 		double k2 = 1 / k / k;
 		// Невязка:
 
-			//a_coef = -2*(1/h/h+1/k/k)
-			//r^(s) = Ax^(s) - b
-			//r^(s)[i][j] = a v[i][j] +1/h/h * v[i-1][j] + 1/h/h * v[i+1][j] + 1/k/k * v[i][j+1] + 1/k/k * v[i][j-1] + f[i][j] 
 		double a_coef = -2 * (h2 + k2);
 
 		for (int i = 1; i < n / 2; i++) {
@@ -199,20 +231,11 @@ public:
 				l_max = fmax(l_max, tmp);
 			}
 		}
-		/*
-		for (int i = 0; i < n/2; i++) {
-			for (int j = m / 2; j < m; j++) {
-				tmp = abs(lambd(i, j));
-				l_min = fmin(l_min, tmp);
-				l_max = fmax(l_max, tmp);
-			}
-		}
-		*/
 		return { l_min, l_max};
 	}
 
 
-	void process(int N_max,double eps_user) {
+	void process(int N_max,double eps_user, double accur_user) {
 
 		//Именно для задачи Дирихле уравнения Пуассона
 		pair<double, double> l_m_M = l_min_max();
@@ -220,56 +243,62 @@ public:
 		double M_max = l_m_M.second;
 		double M_min = l_m_M.first;
 
-		double tau = 2 / (M_min+M_max)*0.5;  //Временное значение для tau( Нужно оптимизировать его, а именно найти лучшую оценку для собственных чисел)
+		double tau = 2 / (M_min+M_max)*0.5;
 
 
 		//Заполнение сетки граничными условиями:	
 		fill_border_conditions();
 		
 		eps_method = eps_user;
-		int iterations = 0;
+		int iterations = 1;
 		for (iterations; iterations < N_max; iterations++) {
 
 			r_max = 0;
 			eps = 0;
-			eps_method = eps_user;
+			eps_method = accur_user;
 			r_s();
 			step(xy_1, r_1, tau,debug_matrix_1,  0);
 			step(xy_2, r_2, tau,debug_matrix_2,  n/2+1);
-			if (eps < 1e-6) {
-				cout << "Шаг " << 1 + iterations << "):\n";
-				cout << "Норма невязки:" << r_max << "\nПогрешность:" << eps << "\nТочность метода:" << eps_method << endl;
+			if (eps < eps_user) {
+				//cout << "Выход по погрешности:\n";
+				//cout << "Шаг " << 1 + iterations << "):\n";
+				//cout << "Норма невязки:" << r_max << "\nОбщая погрешность:" << eps << "\nТочность метода:" << eps_method << endl;
+				
+				break;
+			}
+			else if (eps_method < accur_user) {
+				//cout << "Выход по точности:\n";
+				//cout << "Шаг " << 1 + iterations << "):\n";
+				//cout << "Норма невязки:" << r_max << "\nОбщая погрешность:" << eps << "\nТочность метода:" << eps_method << endl;
 				break;
 			}
 
-			if (iterations % (N_max/10) == 0) {
-				cout << "Шаг " << 1 + iterations << "):\n";
-				cout << "Норма невязки:" << r_max << "\nПогрешность:" << eps << "\nТочность метода:" << eps_method << endl;
-				//show_matrix(r_1, r_2);
-				
-
-			}
 		}
-		
-		cout << "ИТОГ:\n";
+		this->res_N = iterations;
+		//cout << "Выход по числу итераций:\n";
 		//show_matrix(xy_1, xy_2);
-		cout << "Норма невязки:" << r_max << "\nПогрешность:" << eps << "\nТочность метода:" << eps_method<<endl;
-		cout << "Количество итераций:" << iterations;
+		//cout << "Норма невязки:" << r_max << "\nОбщая погрешность:" << eps << "\nТочность метода:" << eps_method<<endl;
+		//cout << "Количество итераций:" << iterations;
 	}
 };
 
-
-
-
-
-
-int main() {
-	system("chcp 1251");
-	int n = 14, m = 14;
+extern "C" __declspec(dllexport)  void main_f(int n, int m, int N_max, double eps,double accur) {
 	double a = 0., b = 1., c = 0., d = 1.;
-	int N_max = 800000;
-	Solution sol(a,b,c,d, n, m);
-	sol.process(N_max,0.5e-6);
 
-	return 0;
+	Solution sol(a,b,c,d, n, m);
+	sol.process(N_max,eps,accur);
+
+	string path_to_save = "./data/";
+	
+
+	csvWriter<double>::write("r_part1.csv", path_to_save, {}, sol.r_1);
+	csvWriter<double>::write("r_part2.csv", path_to_save, {}, sol.r_2);
+
+	csvWriter<double>::write("dif_part1.csv", path_to_save, {}, sol.debug_matrix_1);
+	csvWriter<double>::write("dif_part2.csv", path_to_save, {}, sol.debug_matrix_2);
+
+	csvWriter<double>::write("v_part1.csv", path_to_save, {}, sol.xy_1);
+	csvWriter<double>::write("v_part2.csv", path_to_save, {}, sol.xy_2);
+
+	csvWriter<double>::write("extra_info.csv", path_to_save, { "макс. общая погрешность","макс. невязка","макс. точность метода","Число шагов"}, {{sol.eps,sol.r_max,sol.eps_method,(double) sol.res_N}});
 }

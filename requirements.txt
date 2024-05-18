@@ -1,0 +1,5 @@
+PyQt5==5.15.9
+matplotlib==3.8.0
+PyQtWebEngine==5.15.6
+pandas == 2.2.2
+numpy == 1.26.4
