@@ -19,3 +19,5 @@ dll/Release/*.pdb
 *.txt
 !requirements.txt
 !algorithm/CMakeLists.txt
+!data/
+data/*.csv
