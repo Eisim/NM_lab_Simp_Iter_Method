@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>930</width>
+    <width>933</width>
     <height>931</height>
    </rect>
   </property>
@@ -206,7 +206,7 @@
      </rect>
     </property>
     <property name="currentIndex">
-     <number>4</number>
+     <number>0</number>
     </property>
     <widget class="QWidget" name="tab">
      <attribute name="title">
@@ -265,8 +265,8 @@
         <rect>
          <x>0</x>
          <y>0</y>
-         <width>98</width>
-         <height>28</height>
+         <width>100</width>
+         <height>30</height>
         </rect>
        </property>
        <property name="accessibleName">
@@ -291,8 +291,8 @@
         <rect>
          <x>0</x>
          <y>0</y>
-         <width>98</width>
-         <height>28</height>
+         <width>100</width>
+         <height>30</height>
         </rect>
        </property>
        <attribute name="label">
@@ -345,8 +345,8 @@
         <rect>
          <x>0</x>
          <y>0</y>
-         <width>98</width>
-         <height>28</height>
+         <width>100</width>
+         <height>30</height>
         </rect>
        </property>
        <property name="accessibleName">
@@ -371,8 +371,8 @@
         <rect>
          <x>0</x>
          <y>0</y>
-         <width>98</width>
-         <height>28</height>
+         <width>100</width>
+         <height>30</height>
         </rect>
        </property>
        <attribute name="label">
@@ -425,8 +425,8 @@
         <rect>
          <x>0</x>
          <y>0</y>
-         <width>911</width>
-         <height>438</height>
+         <width>100</width>
+         <height>30</height>
         </rect>
        </property>
        <property name="accessibleName">
@@ -474,8 +474,8 @@
         <rect>
          <x>0</x>
          <y>0</y>
-         <width>911</width>
-         <height>438</height>
+         <width>100</width>
+         <height>30</height>
         </rect>
        </property>
        <attribute name="label">
@@ -485,30 +485,11 @@
      </widget>
     </widget>
    </widget>
-   <widget class="QWidget" name="horizontalLayoutWidget_4">
-    <property name="geometry">
-     <rect>
-      <x>0</x>
-      <y>560</y>
-      <width>841</width>
-      <height>31</height>
-     </rect>
-    </property>
-    <layout class="QHBoxLayout" name="horizontalLayout_4">
-     <item>
-      <widget class="QPushButton" name="plot_button">
-       <property name="text">
-        <string>Построить</string>
-       </property>
-      </widget>
-     </item>
-    </layout>
-   </widget>
    <widget class="QPushButton" name="delete_plot">
     <property name="geometry">
      <rect>
       <x>840</x>
-      <y>560</y>
+      <y>570</y>
       <width>81</width>
       <height>31</height>
      </rect>
@@ -517,13 +498,46 @@
      <string>очистить</string>
     </property>
    </widget>
+   <widget class="QComboBox" name="plot_type">
+    <property name="geometry">
+     <rect>
+      <x>0</x>
+      <y>570</y>
+      <width>131</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <item>
+     <property name="text">
+      <string>Поверхность</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>Точечный</string>
+     </property>
+    </item>
+   </widget>
+   <widget class="QPushButton" name="plot_button">
+    <property name="geometry">
+     <rect>
+      <x>130</x>
+      <y>570</y>
+      <width>709</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Построить</string>
+    </property>
+   </widget>
   </widget>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>930</width>
+     <width>933</width>
      <height>26</height>
     </rect>
    </property>
@@ -540,7 +554,6 @@
   <tabstop>input_N_max</tabstop>
   <tabstop>input_eps</tabstop>
   <tabstop>input_accur</tabstop>
-  <tabstop>plot_button</tabstop>
   <tabstop>delete_plot</tabstop>
   <tabstop>tabWidget</tabstop>
   <tabstop>info_table_v2</tabstop>

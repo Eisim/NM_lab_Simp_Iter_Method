@@ -107,7 +107,9 @@ public:
 	double r_max = 0;
 	int res_N = 0;
 	vector<double> x, y;
-	vector<vector<double>> xy_1, xy_2, r_1, r_2, debug_matrix_1, debug_matrix_2;
+	vector<vector<double>> xy_1, xy_2, r_1, r_2, dif_matrix_1, dif_matrix_2;
+	double argmax_dif_x = 0, argmax_dif_y = 0, max_dif;
+	double tau;
 	Solution(double a, double b, double c, double  d, int n, int m) {
 		if (!check_for_multiplicity(n, m) || n<=0 ||m<=0) {
 			throw exception("—етка не накладываетс€ на область");
@@ -135,8 +137,8 @@ public:
 		r_1 = vector(n / 2 + 1, vector<double>(m + 1, 0));
 		r_2 = vector(n / 2, vector<double>(m / 2 + 1, 0));
 
-		debug_matrix_1 = vector(n / 2 + 1, vector<double>(m + 1, 0));
-		debug_matrix_2 = vector(n / 2, vector<double>(m / 2 + 1, 0));
+		dif_matrix_1 = vector(n / 2 + 1, vector<double>(m + 1, 0));
+		dif_matrix_2 = vector(n / 2, vector<double>(m / 2 + 1, 0));
 	}
 
 
@@ -203,13 +205,17 @@ public:
 		// x^(s+1) = tau*(b - Ax^(s)) + x^(s)  
 		// x^(s+1) = x^(s) - tau*(r^(s))
 		// ћожно оптимизировать(не считать значени€ на границе)
-		
 		double tmp,loc_eps_method = 0;
 		for (int i = 0; i < xy.size(); i++) {
 			for (int j = 0; j < xy[0].size(); j++) {
 				xy[i][j] = xy[i][j] - tau * r_s[i][j] * (-1);//т.к. матрица не €вл€етс€ положительно определенной
 				eps = fmax(eps,fabs( u(x[i+shift],y[j]) - xy[i][j]));
 				d_m[i][j] = fabs(u(x[i+shift], y[j]) - xy[i][j]);
+				if (d_m[i][j] > max_dif) {
+					max_dif = d_m[i][j];
+					argmax_dif_x = x[i+ shift];
+					argmax_dif_y = y[j+ shift];
+				}
 				loc_eps_method = fmax(loc_eps_method,abs(tau*r_s[i][j]));
 			}
 		}
@@ -243,7 +249,7 @@ public:
 		double M_max = l_m_M.second;
 		double M_min = l_m_M.first;
 
-		double tau = 2 / (M_min+M_max)*0.5;
+		tau = 2 / (M_min+M_max);
 
 
 		//«аполнение сетки граничными услови€ми:	
@@ -256,9 +262,10 @@ public:
 			r_max = 0;
 			eps = 0;
 			eps_method = accur_user;
+			max_dif = 0;
 			r_s();
-			step(xy_1, r_1, tau,debug_matrix_1,  0);
-			step(xy_2, r_2, tau,debug_matrix_2,  n/2+1);
+			step(xy_1, r_1, tau,dif_matrix_1,  0);
+			step(xy_2, r_2, tau,dif_matrix_2,  n/2+1);
 			if (eps < eps_user) {
 				//cout << "¬ыход по погрешности:\n";
 				//cout << "Ўаг " << 1 + iterations << "):\n";
@@ -294,11 +301,11 @@ extern "C" __declspec(dllexport)  void main_f(int n, int m, int N_max, double ep
 	csvWriter<double>::write("r_part1.csv", path_to_save, {}, sol.r_1);
 	csvWriter<double>::write("r_part2.csv", path_to_save, {}, sol.r_2);
 
-	csvWriter<double>::write("dif_part1.csv", path_to_save, {}, sol.debug_matrix_1);
-	csvWriter<double>::write("dif_part2.csv", path_to_save, {}, sol.debug_matrix_2);
+	csvWriter<double>::write("dif_part1.csv", path_to_save, {}, sol.dif_matrix_1);
+	csvWriter<double>::write("dif_part2.csv", path_to_save, {}, sol.dif_matrix_2);
 
 	csvWriter<double>::write("v_part1.csv", path_to_save, {}, sol.xy_1);
 	csvWriter<double>::write("v_part2.csv", path_to_save, {}, sol.xy_2);
 
-	csvWriter<double>::write("extra_info.csv", path_to_save, { "макс. обща€ погрешность","макс. нев€зка","макс. точность метода","„исло шагов"}, {{sol.eps,sol.r_max,sol.eps_method,(double) sol.res_N}});
+	csvWriter<double>::write("extra_info.csv", path_to_save, { "макс. обща€ погрешность: ","макс. нев€зка: ","макс. точность метода: ","„исло шагов","макс. |u(x;y) - v(x;y)| = ","при x = ","при y = ","ѕараметр tau: "}, {{sol.eps,sol.r_max,sol.eps_method,(double)sol.res_N,sol.max_dif, sol.argmax_dif_x,sol.argmax_dif_y,sol.tau}});
 }

@@ -177,16 +177,25 @@ class UI_mainWindow(QMainWindow):
         x2_arr = x_arr[n // 2:]
         y2_arr = y_arr[:first_part2_index]
 
-        x1,y1 = np.meshgrid(x1_arr, y1_arr)
+        x1, y1 = np.meshgrid(x1_arr, y1_arr)
         z1 = table_v1.T
         dif1 = table_dif1.T
-        self.plot_widget_func.plot.plot_surface(x1, y1, z1, cmap = plt.cm.coolwarm)
-        self.plot_widget_dif.plot.plot_surface(x1, y1, dif1, cmap = plt.cm.coolwarm)
+
         x2, y2 = np.meshgrid(x2_arr, y2_arr)
         dif2 = np.insert(table_dif2, 0, dif1[:first_part2_index, -1], axis=0).T
         z2 = np.insert(table_v2, 0, z1[:first_part2_index, -1], axis=0).T
-        self.plot_widget_func.plot.plot_surface(x2, y2, z2, cmap = plt.cm.coolwarm)
-        self.plot_widget_dif.plot.plot_surface(x2, y2, dif2, cmap = plt.cm.coolwarm)
+
+
+        if self.plot_type.currentIndex() == 0:
+            self.plot_widget_func.plot.plot_surface(x1, y1, z1, cmap=plt.cm.plasma)
+            self.plot_widget_dif.plot.plot_surface(x1, y1, dif1, cmap=plt.cm.plasma)
+            self.plot_widget_func.plot.plot_surface(x2, y2, z2, cmap=plt.cm.plasma)
+            self.plot_widget_dif.plot.plot_surface(x2, y2, dif2, cmap=plt.cm.plasma)
+        if self.plot_type.currentIndex() == 1:
+            self.plot_widget_func.plot.scatter(x1, y1, z1, c=z1)
+            self.plot_widget_dif.plot.scatter(x1, y1, dif1, c=dif1)
+            self.plot_widget_func.plot.scatter(x2, y2, z2, c=z2)
+            self.plot_widget_dif.plot.scatter(x2, y2, dif2, c=dif2)
 
 
 
