@@ -7,14 +7,22 @@
 const double PI = 3.1415926535897932384626433832795028841971693993751058209;
 
 using namespace std;
+string path_to_save = "./data/";
+
+int iterations = 0;
+int global_N_max = 1;
+extern "C" __declspec(dllexport) float get_iteration() {
+	return (float)iterations/(float)global_N_max;
+}
+
+
+
 
 double u(double x, double y) {
 	return exp(pow(sin(PI * x * y), 2));
 }
 double f(double x, double y) {
-	// -u^{''}_{xx} - u^{''}_{yy}
-	//return -(u(x, y) * PI * PI * y * y * (pow(sin(2 * PI * x * y), 2)) + 2 * cos(2 * PI * x * y)) - (u(x, y) * PI * PI * x * x * (pow(sin(2 * PI * x * y), 2)) + 2 * cos(2 * PI * x * y));
-	//return -(  (pow(u(x,y),2)*sin(PI*4*x*y) *pow(PI*y,3) )   + (pow(u(x, y), 2) * sin(PI * 4 * x * y) * pow(PI * x, 3)));
+
 	return -u(x, y) * (pow(sin(2 * PI * x * y), 2) + 2*cos(2 * PI * x * y)) * PI * PI*(y * y + x * x);
 }
 template<class T>
@@ -105,6 +113,13 @@ public:
 	double eps = 0;
 	double eps_method = 0;
 	double r_max = 0;
+
+	//число итераций для достижения точности
+	double z0_norm_2 = 0;
+	int s_met = 0;
+	int n_sch = 0, m_sch = 0;
+	//число итераций для достижения точности
+
 	int res_N = 0;
 	vector<double> x, y;
 	vector<vector<double>> xy_1, xy_2, r_1, r_2, dif_matrix_1, dif_matrix_2;
@@ -141,6 +156,25 @@ public:
 		dif_matrix_2 = vector(n / 2, vector<double>(m / 2 + 1, 0));
 	}
 
+	void calc_params(double eps, double M_max, double M_min) {
+		double tmp = 0;
+		for (int i = 0; i < xy_1.size(); i++) {
+			for (int j = 0; j < xy_1[0].size(); j++) {
+				tmp += u(x[i], y[j]) * u(x[i], y[j]);
+			}
+		}
+		for (int i = 0; i < xy_2.size(); i++) {
+			for (int j = 0; j < xy_2[0].size(); j++) {
+				tmp += u(x[i + n / 2 + 1], y[j]) * u(x[i + n / 2 + 1], y[j]);
+			}
+		}
+		z0_norm_2 = sqrt(tmp);
+		double eps_met = eps / 3;
+		double mu_A = M_max / M_min;
+		s_met = log(eps_met /z0_norm_2)/log((mu_A - 1)/(mu_A + 1));
+		
+		csvWriter<int>::write("Needed_params.csv", path_to_save, {"n: ","m: ","s_met: "}, {{n_sch, m_sch, s_met}});
+	}
 
 	void show_matrix(const vector<vector<double>>& xy_1, const vector<vector<double>>& xy_2) {
 		std::cout << "Первая часть:\n";
@@ -168,7 +202,6 @@ public:
 		double h2 = 1 / h / h;
 		double k2 = 1 / k / k;
 		// Невязка:
-
 		double a_coef = -2 * (h2 + k2);
 
 		for (int i = 1; i < n / 2; i++) {
@@ -206,6 +239,7 @@ public:
 		// x^(s+1) = x^(s) - tau*(r^(s))
 		// Можно оптимизировать(не считать значения на границе)
 		double tmp,loc_eps_method = 0;
+#pragma omp parallel for collapse(2) reduction(max:eps, max_dif, loc_eps_method) // collapse(2) для параллелизации обоих циклов
 		for (int i = 0; i < xy.size(); i++) {
 			for (int j = 0; j < xy[0].size(); j++) {
 				xy[i][j] = xy[i][j] - tau * r_s[i][j] * (-1);//т.к. матрица не является положительно определенной
@@ -228,21 +262,21 @@ public:
 
 	pair<double, double> l_min_max() {
 		double l_min = abs(lambd(1,1));
-		double l_max = abs(lambd(1,1));
+		double l_max = abs(lambd(n-1,m-1));
+		/*
 		double tmp = 0;
-		for (int i = 0; i < n; i++) {
-			for (int j = 0; j < m; j++) {
+		for (int i = 1; i < n; i++) {
+			for (int j = 1; j < m; j++) {
 				tmp = abs(lambd(i, j));
 				l_min = fmin(l_min, tmp);
 				l_max = fmax(l_max, tmp);
 			}
 		}
+		*/
 		return { l_min, l_max};
 	}
 
-
-	void process(int N_max,double eps_user, double accur_user) {
-
+	void process(int N_max,double eps_user, double accur_user, int accur_exit, int eps_exit) {
 		//Именно для задачи Дирихле уравнения Пуассона
 		pair<double, double> l_m_M = l_min_max();
 
@@ -250,15 +284,13 @@ public:
 		double M_min = l_m_M.first;
 
 		tau = 2 / (M_min+M_max);
-
-
+		calc_params(eps_user,M_max, M_min);
 		//Заполнение сетки граничными условиями:	
 		fill_border_conditions();
 		
 		eps_method = eps_user;
-		int iterations = 1;
+		iterations = 0;
 		for (iterations; iterations < N_max; iterations++) {
-
 			r_max = 0;
 			eps = 0;
 			eps_method = accur_user;
@@ -266,14 +298,13 @@ public:
 			r_s();
 			step(xy_1, r_1, tau,dif_matrix_1,  0);
 			step(xy_2, r_2, tau,dif_matrix_2,  n/2+1);
-			if (eps < eps_user) {
+			if (eps < eps_user && eps_exit) {
 				//cout << "Выход по погрешности:\n";
 				//cout << "Шаг " << 1 + iterations << "):\n";
 				//cout << "Норма невязки:" << r_max << "\nОбщая погрешность:" << eps << "\nТочность метода:" << eps_method << endl;
-				
 				break;
 			}
-			else if (eps_method < accur_user) {
+			else if (eps_method < accur_user && accur_exit) {
 				//cout << "Выход по точности:\n";
 				//cout << "Шаг " << 1 + iterations << "):\n";
 				//cout << "Норма невязки:" << r_max << "\nОбщая погрешность:" << eps << "\nТочность метода:" << eps_method << endl;
@@ -281,22 +312,26 @@ public:
 			}
 
 		}
+		r_max = 0;
+		r_s();
 		this->res_N = iterations;
+		iterations = N_max;
 		//cout << "Выход по числу итераций:\n";
 		//show_matrix(xy_1, xy_2);
 		//cout << "Норма невязки:" << r_max << "\nОбщая погрешность:" << eps << "\nТочность метода:" << eps_method<<endl;
 		//cout << "Количество итераций:" << iterations;
 	}
 };
+extern "C" __declspec(dllexport) void calc_params(int n, int m, double eps, double eps_method) {
 
-extern "C" __declspec(dllexport)  void main_f(int n, int m, int N_max, double eps,double accur) {
+}
+extern "C" __declspec(dllexport)  void main_f(int n, int m, int N_max, double eps,double accur, int accur_exit, int eps_exit) {
 	double a = 0., b = 1., c = 0., d = 1.;
-
+	iterations = 0;
+	global_N_max = N_max;
 	Solution sol(a,b,c,d, n, m);
-	sol.process(N_max,eps,accur);
+	sol.process(N_max,eps,accur,accur_exit,eps_exit);
 
-	string path_to_save = "./data/";
-	
 
 	csvWriter<double>::write("r_part1.csv", path_to_save, {}, sol.r_1);
 	csvWriter<double>::write("r_part2.csv", path_to_save, {}, sol.r_2);
@@ -307,5 +342,5 @@ extern "C" __declspec(dllexport)  void main_f(int n, int m, int N_max, double ep
 	csvWriter<double>::write("v_part1.csv", path_to_save, {}, sol.xy_1);
 	csvWriter<double>::write("v_part2.csv", path_to_save, {}, sol.xy_2);
 
-	csvWriter<double>::write("extra_info.csv", path_to_save, { "макс. общая погрешность: ","макс. невязка: ","макс. точность метода: ","Число шагов","макс. |u(x;y) - v(x;y)| = ","при x = ","при y = ","Параметр tau: "}, {{sol.eps,sol.r_max,sol.eps_method,(double)sol.res_N,sol.max_dif, sol.argmax_dif_x,sol.argmax_dif_y,sol.tau}});
+	csvWriter<double>::write("extra_info.csv", path_to_save, { "макс. общая погрешность: ","макс. невязка: ","макс. точность метода: ","Число шагов:","макс. |u(x;y) - v(x;y)| = ","при x = ","при y = ","Параметр tau: "}, {{sol.eps,sol.r_max,sol.eps_method,(double)sol.res_N,sol.max_dif, sol.argmax_dif_x,sol.argmax_dif_y,sol.tau}});
 }

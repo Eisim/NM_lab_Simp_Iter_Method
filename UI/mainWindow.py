@@ -9,10 +9,14 @@ import numpy as np
 import pandas as pd
 import ctypes
 import os
-import time
+
+from PyQt5.QtCore import QThread, pyqtSignal
+
+from threading import Thread
+
+is_busy = False
 
 ui_file = './UI/MainWindow.ui'
-
 
 def create_plot(parent):
     parent.fig = Figure(figsize=(parent.width() / 100, parent.height() / 100))
@@ -39,6 +43,10 @@ class UI_mainWindow(QMainWindow):
         self.addToolBar(self.plot_toolBar)  # создание тулбара
 
         # функционал кнопок
+        self.threads = {"calculating":None, "progress_bar":None}
+
+
+        self.calculate_button.clicked.connect(self.new_thread_calculating)
         self.plot_button.clicked.connect(
             self.plotting)  # задание функционала. В данной строке: построение графика при нажатии на кнопку "Построить"
         self.delete_plot.clicked.connect(
@@ -54,21 +62,52 @@ class UI_mainWindow(QMainWindow):
         self.plot_widget_dif.plot.set_ylabel("y")
         self.plot_widget_dif.plot.set_zlabel("$U(x,y) - V(x,y)$")
 
+        # подключение библиотеки
+        lib_dir = os.path.join(os.curdir, 'dll', 'Release', "libNM1_lib.dll")  # Что запускаем
+        lib = ctypes.windll.LoadLibrary(lib_dir)
+
+        self.calculating_func = lib.main_f
+        self.calculating_func.argtypes = [ctypes.c_int, ctypes.c_int,  # n, m
+                            ctypes.c_int,  # N_max
+                            ctypes.c_double,  # eps
+                            ctypes.c_double,  # accur
+                            ctypes.c_int,  # accur_exit
+                            ctypes.c_int  # eps_exit
+                            ]
+        self.calculating_func.restype = ctypes.c_void_p
+
+        self.progress_func = lib.get_iteration
+        self.progress_func.argtypes = []
+        self.progress_func.restype = ctypes.c_float
+
         # настройка включения второго окна
         # self.info_button.triggered.connect(lambda: self.info_window("my_info.pdf"))
 
+    def new_thread_calculating(self):
+        global is_busy
+        if is_busy:
+            return
+        is_busy = True
+        self.threads['calculating'] = Thread(target=self.calculating)
+        self.threads['calculating'].start()
+        self.threads['progress_bar'] = Thread(target=self.run_progressbar)
+        self.threads['progress_bar'].start()
+    def run_progressbar(self):
+        global is_busy
+        self.progressBar.setValue(0)
+        self.progressBar.setMaximum(10000)
+        self.progressBar.setMinimum(0)
+        while self.progressBar.value() < 10000 and is_busy:
+            cur_step = self.progress_func()
+            self.progressBar.setValue(int(cur_step * 10000))
+        self.progressBar.setValue(0)
     def standart_params(self):
-        n, m, N_max, eps, accur = (10, 10, 100, 1e-6, 1e-6)
-        self.input_n.setText(str(n))
-        self.input_m.setText(str(m))
-        self.input_N_max.setText(str(N_max))
-        self.input_eps.setText(str(eps))
-        self.input_accur.setText(str(accur))
-
-    # def info_window(self, file_name):
-    #    self.i_window = QMainWindow()
-    #    self.i_window.ui = UI_infoWindow(file_name)
-    #    self.i_window.ui.show()
+        self.n, self.m, self.N_max, self.eps, self.accur = (10, 10, 100, 5e-7, 1e-12)
+        self.input_n.setText(str(self.n))
+        self.input_m.setText(str(self.m))
+        self.input_N_max.setText(str(self.N_max))
+        self.input_eps.setText(str(self.eps))
+        self.input_accur.setText(str(self.accur))
 
     def clear_plots(self):
         self.clear_plot(self.plot_widget_func)
@@ -80,7 +119,6 @@ class UI_mainWindow(QMainWindow):
         self.clear_table(self.info_table_r1)
         self.clear_table(self.info_table_r2)
         self.clear_exrta_info_table()
-
 
     def clear_plot(self, cur_plot_widget):
         cur_plot_widget.plot.cla()
@@ -119,18 +157,35 @@ class UI_mainWindow(QMainWindow):
         i = 0
         cols = df.columns
         for i in range(len(cols)):
-            cur_text = f"{cols[i]} {df.iloc[0,i]}"
+            cur_text = f"{cols[i]} {df.iloc[0, i]}"
             self.extra_info_layout.addWidget(QLabel(cur_text, self))
             i += 1
 
+    def calculating(self):
+        global is_busy
+        # lib_dir = os.path.join(os.curdir, "libNM1_lib.dll")
+
+        self.n = int(self.input_n.text())
+        self.m = int(self.input_m.text())
+        self.N_max = int(self.input_N_max.text())
+        self.eps = float(self.input_eps.text())
+        self.accur = float(self.input_accur.text())
+        self.accur_exit = int(self.check_accur.isChecked())
+        self.eps_exit = int(self.check_eps.isChecked())
+        self.statusBar.showMessage(f'Расчёт начался')
+        self.calculating_func(self.n, self.m, self.N_max, self.eps, self.accur, self.accur_exit, self.eps_exit)
+        is_busy = False
+        self.statusBar.showMessage(f'Расчёт завершен')
+
+
     def plotting(self):
+        if is_busy:
+            return
+        self.statusBar.showMessage(f'Строятся графики')
         a = 0
         b = 1
         c = 0
         d = 1
-        # lib_dir = os.path.join(os.curdir, "libNM1_lib.dll")
-        lib_dir = os.path.join(os.curdir, 'dll', 'Release', "libNM1_lib.dll")  # Что запускаем
-        lib = ctypes.windll.LoadLibrary(lib_dir)
 
         f_v1 = "data/v_part1.csv"
         f_v2 = "data/v_part2.csv"
@@ -143,23 +198,10 @@ class UI_mainWindow(QMainWindow):
 
         f_extra_info = "data/extra_info.csv"
 
-        my_func = lib.main_f
-        my_func.argtypes = [ctypes.c_int, ctypes.c_int,  # n, m
-                            ctypes.c_int,  # N_max
-                            ctypes.c_double,  # eps
-                            ctypes.c_double  # accur
-                            ]
-        my_func.restype = ctypes.c_void_p
 
-        n = int(self.input_n.text())
-        m = int(self.input_m.text())
-        N_max = int(self.input_N_max.text())
-        eps = float(self.input_eps.text())
-        accur = float(self.input_accur.text())
 
-        my_func(n, m, N_max, eps, accur)
         self.clear_exrta_info_table()
-        self.update_extra_info_table(pd.read_csv(f_extra_info,encoding='cp1251'))
+        self.update_extra_info_table(pd.read_csv(f_extra_info, encoding='cp1251'))
 
         table_v1 = np.genfromtxt(f_v1, delimiter=',')
         table_v2 = np.genfromtxt(f_v2, delimiter=',')
@@ -167,11 +209,12 @@ class UI_mainWindow(QMainWindow):
         table_dif2 = np.genfromtxt(f_dif2, delimiter=',')
         table_r1 = np.genfromtxt(f_r1, delimiter=',')
         table_r2 = np.genfromtxt(f_r2, delimiter=',')
-
-        first_part2_index = m//2+1
+        n = table_v1.shape[0]+table_v2.shape[0]-1
+        m =table_v1.shape[1] - 1
+        first_part2_index = m // 2 + 1
         x_arr = np.linspace(a, b, n + 1)
         y_arr = np.linspace(c, d, m + 1)
-        center = ((b + a) / 2, (d + c) / 2)
+
         x1_arr = x_arr[0:n // 2 + 1]
         y1_arr = y_arr
         x2_arr = x_arr[n // 2:]
@@ -185,19 +228,16 @@ class UI_mainWindow(QMainWindow):
         dif2 = np.insert(table_dif2, 0, dif1[:first_part2_index, -1], axis=0).T
         z2 = np.insert(table_v2, 0, z1[:first_part2_index, -1], axis=0).T
 
-
         if self.plot_type.currentIndex() == 0:
             self.plot_widget_func.plot.plot_surface(x1, y1, z1, cmap=plt.cm.plasma)
             self.plot_widget_dif.plot.plot_surface(x1, y1, dif1, cmap=plt.cm.plasma)
             self.plot_widget_func.plot.plot_surface(x2, y2, z2, cmap=plt.cm.plasma)
             self.plot_widget_dif.plot.plot_surface(x2, y2, dif2, cmap=plt.cm.plasma)
         if self.plot_type.currentIndex() == 1:
-            self.plot_widget_func.plot.scatter(x1, y1, z1, c=z1)
-            self.plot_widget_dif.plot.scatter(x1, y1, dif1, c=dif1)
-            self.plot_widget_func.plot.scatter(x2, y2, z2, c=z2)
-            self.plot_widget_dif.plot.scatter(x2, y2, dif2, c=dif2)
-
-
+            self.plot_widget_func.plot.scatter(x1, y1, z1, c=z1, alpha = 1)
+            self.plot_widget_dif.plot.scatter(x1, y1, dif1, c=dif1, alpha = 1)
+            self.plot_widget_func.plot.scatter(x2, y2, z2, c=z2, alpha = 1)
+            self.plot_widget_dif.plot.scatter(x2, y2, dif2, c=dif2, alpha = 1)
 
         self.clear_table(self.info_table_v1)
         self.clear_table(self.info_table_v2)
@@ -215,22 +255,18 @@ class UI_mainWindow(QMainWindow):
 
         self.plot_widget_func.canvas.draw()
         self.plot_widget_dif.canvas.draw()
-
+        self.statusBar.showMessage(f'Графики построены')
     def set_row(self, table, row):
         max_row_index = table.rowCount()
         table.insertRow(max_row_index)  # создание строки
         for i in range(len(row)):
             table.setItem(max_row_index, i, QTableWidgetItem(str(row[i])))  # заполнение элементами
 
-    # def set_columns(self, table, task_index):
-    #    cols = columns[task_index]
-    #    table.setColumnCount(len(cols))  # создание пустых колонок, в количестве len(cols) штук
-    #    table.setHorizontalHeaderLabels(cols)  # присвоение имен для колонок
     def set_table(self, table, data):
         if isinstance(data, np.ndarray):
-            table.setColumnCount(data.shape[1] - 1)
+            table.setColumnCount(data.shape[0])
         elif isinstance(data, pd.DataFrame):
-            table.setColumnCount(data.shape[1])
+            table.setColumnCount(data.shape[0])
             table.setHorizontalHeaderLabels(data.columns)
         for row in data.T:
             self.set_row(table, row)
@@ -239,5 +275,3 @@ class UI_mainWindow(QMainWindow):
         while (table.rowCount() > 0):
             table.removeRow(0)
 
-    # def get_num_max_iter(self):
-    #     return self.max_num_iter.text()
