@@ -28,8 +28,11 @@ class ProgressThread(QThread):
         self.max_progress_value = max_progress_value
     def run(self):
         while True:
-            self.progress = int(self.progress_func()*self.max_progress_value)
-            self.progress_signal.emit(self.progress)
+            if is_busy:
+                self.progress = int(self.progress_func()*self.max_progress_value)
+                self.progress_signal.emit(self.progress)
+            else:
+                self.progress_signal.emit(0)
             time.sleep(0.5)
 def create_plot(parent):
     parent.fig = Figure(figsize=(parent.width() / 100, parent.height() / 100))
@@ -110,15 +113,6 @@ class UI_mainWindow(QMainWindow):
         is_busy = True
         self.threads['calculating'] = Thread(target=self.calculating)
         self.threads['calculating'].start()
-        #self.threads['progress_bar'] = Thread(target=self.run_progressbar)
-        #self.threads['progress_bar'].start()
-    def run_progressbar(self):
-        global is_busy
-        while self.progressBar.value() < self.progressBar_MaxValue and is_busy:
-            cur_step = self.progress_func()
-            cur_percent = int(cur_step * self.progressBar_MaxValue)
-            self.progressBar.setValue(cur_percent)
-        self.progressBar.setValue(0)
 
     def standart_params(self):
         self.n, self.m, self.N_max, self.eps, self.accur = (10, 10, 100, 5e-7, 1e-12)
@@ -192,6 +186,7 @@ class UI_mainWindow(QMainWindow):
         self.accur_exit = int(self.check_accur.isChecked())
         self.eps_exit = int(self.check_eps.isChecked())
         self.statusBar.showMessage(f'Расчёт начался')
+        is_busy = True
         self.calculating_func(self.n, self.m, self.N_max, self.eps, self.accur, self.accur_exit, self.eps_exit)
         is_busy = False
         self.statusBar.showMessage(f'Расчёт завершен')

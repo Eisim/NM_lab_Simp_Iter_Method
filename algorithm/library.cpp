@@ -11,8 +11,20 @@ string path_to_save = "./data/";
 
 int iterations = 0;
 int global_N_max = 1;
+double global_eps = 1;
+double global_eps_method = 1;
+double global_cur_eps = 0;
+double global_cur_eps_method = 0;
+int global_eps_exit = 0;
+int global_eps_method_exit = 0;
+
+
 extern "C" __declspec(dllexport) float get_iteration() {
-	return (float)iterations/(float)global_N_max;
+	float cur_percent = 0;
+	float eps_percent = min({ (float)(global_eps_exit * global_eps / global_cur_eps) ,1.f });
+	float eps_method_percent = min({ (float)(global_eps_method_exit * global_eps_method / global_cur_eps_method),  1.f});
+	cur_percent = max({ (float)iterations / (float)global_N_max , eps_percent, eps_method_percent });
+	return cur_percent;
 }
 
 
@@ -298,6 +310,8 @@ public:
 			r_s();
 			step(xy_1, r_1, tau,dif_matrix_1,  0);
 			step(xy_2, r_2, tau,dif_matrix_2,  n/2+1);
+			global_cur_eps_method = eps_method;
+			global_cur_eps = eps;
 			if (eps < eps_user && eps_exit) {
 				//cout << "Выход по погрешности:\n";
 				//cout << "Шаг " << 1 + iterations << "):\n";
@@ -327,8 +341,15 @@ extern "C" __declspec(dllexport) void calc_params(int n, int m, double eps, doub
 }
 extern "C" __declspec(dllexport)  void main_f(int n, int m, int N_max, double eps,double accur, int accur_exit, int eps_exit) {
 	double a = 0., b = 1., c = 0., d = 1.;
+	
 	iterations = 0;
 	global_N_max = N_max;
+	global_eps = eps;
+	global_eps_method = accur;
+	global_eps_exit = eps_exit;
+	global_eps_method_exit = accur_exit;
+
+
 	Solution sol(a,b,c,d, n, m);
 	sol.process(N_max,eps,accur,accur_exit,eps_exit);
 
@@ -342,5 +363,8 @@ extern "C" __declspec(dllexport)  void main_f(int n, int m, int N_max, double ep
 	csvWriter<double>::write("v_part1.csv", path_to_save, {}, sol.xy_1);
 	csvWriter<double>::write("v_part2.csv", path_to_save, {}, sol.xy_2);
 
-	csvWriter<double>::write("extra_info.csv", path_to_save, { "макс. общая погрешность: ","макс. невязка: ","макс. точность метода: ","Число шагов:","макс. |u(x;y) - v(x;y)| = ","при x = ","при y = ","Параметр tau: "}, {{sol.eps,sol.r_max,sol.eps_method,(double)sol.res_N,sol.max_dif, sol.argmax_dif_x,sol.argmax_dif_y,sol.tau}});
+	csvWriter<double>::write("extra_info.csv", path_to_save, { "макс. общая погрешность: ","макс. невязка: ","макс. точность метода: ","Число шагов:","макс. |u(x;y) - v(x;y)| = ","при x = ","при y = ","Параметр tau: ","n: ","m: "}, {{sol.eps,sol.r_max,sol.eps_method,(double)sol.res_N,sol.max_dif, sol.argmax_dif_x,sol.argmax_dif_y,sol.tau, (double)n, (double)m}});
+	
+	global_eps = 0.;
+	global_eps_method = 0.;
 }
