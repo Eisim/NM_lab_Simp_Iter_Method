@@ -16,6 +16,9 @@ dll/Release/*.exp
 dll/Release/*.lib
 dll/Release/*.pdb
 
+experiments/*
+data/*
+
 *.txt
 !requirements.txt
 !algorithm/CMakeLists.txt

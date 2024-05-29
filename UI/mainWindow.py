@@ -8,7 +8,7 @@ from UI.infoWindow import UI_infoWindow
 import numpy as np
 import pandas as pd
 import ctypes
-import os
+import os, shutil
 
 from PyQt5.QtCore import QThread, pyqtSignal
 
@@ -101,6 +101,10 @@ class UI_mainWindow(QMainWindow):
         self.progress_thread = ProgressThread(self.progress_func,10000)
         self.progress_thread.progress_signal.connect(self.update_progress_bar)
         self.progress_thread.start()
+
+        experiments = os.listdir("experiments")
+        for exp in experiments:
+            self.experiments_combobox.addItem(exp)
         # настройка включения второго окна
         # self.info_button.triggered.connect(lambda: self.info_window("my_info.pdf"))
 
@@ -176,7 +180,6 @@ class UI_mainWindow(QMainWindow):
 
     def calculating(self):
         global is_busy
-        # lib_dir = os.path.join(os.curdir, "libNM1_lib.dll")
 
         self.n = int(self.input_n.text())
         self.m = int(self.input_m.text())
@@ -191,7 +194,16 @@ class UI_mainWindow(QMainWindow):
         is_busy = False
         self.statusBar.showMessage(f'Расчёт завершен')
 
-
+        experiments = os.listdir('experiments/')
+        exp_ind = max( [int(x.split('_')[0]) for x in experiments]) + 1
+        cur_experiment  = os.listdir('data/')
+        experiment_name = f'{exp_ind}_эксперимент'
+        cur_experiment_path = os.path.join('experiments',experiment_name)
+        os.makedirs(cur_experiment_path)
+        for e in cur_experiment:
+            os.rename(os.path.join('data',e), os.path.join(cur_experiment_path,e))
+        self.experiments_combobox.addItem(experiment_name)
+        self.experiments_combobox.setCurrentIndex(len(experiments))
     def plotting(self):
         self.statusBar.showMessage(f'Строятся графики')
         a = 0
@@ -199,16 +211,19 @@ class UI_mainWindow(QMainWindow):
         c = 0
         d = 1
 
-        f_v1 = "data/v_part1.csv"
-        f_v2 = "data/v_part2.csv"
+        path_to_experiment = os.path.join('experiments',self.experiments_combobox.currentText())
 
-        f_r1 = "data/r_part1.csv"
-        f_r2 = "data/r_part2.csv"
+        f_v1 = os.path.join(path_to_experiment, 'v_part1.csv')
+        f_v2 = os.path.join(path_to_experiment,  'v_part2.csv')
 
-        f_dif1 = "data/dif_part1.csv"
-        f_dif2 = "data/dif_part2.csv"
+        f_r1 = os.path.join(path_to_experiment,  'r_part1.csv')
+        f_r2 = os.path.join(path_to_experiment,   'r_part2.csv')
 
-        f_extra_info = "data/extra_info.csv"
+        f_dif1 = os.path.join(path_to_experiment,  'dif_part1.csv')
+        f_dif2  = os.path.join(path_to_experiment,   'dif_part2.csv')
+
+        f_extra_info = os.path.join(path_to_experiment,  'extra_info.csv')
+
 
 
 

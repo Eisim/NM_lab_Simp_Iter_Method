@@ -77,13 +77,6 @@ class Solution {
 	int n, m;
 	double a, b, c, d, h, k;
 
-
-	
-
-	//Переменные для оценки работы метода
-
-	
-
 	bool check_for_multiplicity(int n, int m) {
 		return !((n % 2) && (m % 2));
 	}
@@ -126,11 +119,18 @@ public:
 	double eps_method = 0;
 	double r_max = 0;
 
-	//число итераций для достижения точности
+	//число итераций для достижения точности V
 	double z0_norm_2 = 0;
 	int s_met = 0;
 	int n_sch = 0, m_sch = 0;
-	//число итераций для достижения точности
+	//число итераций для достижения точности ^
+
+	//переменные для теоретических расчётов V
+	double r2_norm = 0;
+	double r2_0 = 0;
+	double r2_N = 0;
+
+	//переменные для теоретических расчётов ^
 
 	int res_N = 0;
 	vector<double> x, y;
@@ -170,16 +170,32 @@ public:
 
 	void calc_params(double eps, double M_max, double M_min) {
 		double tmp = 0;
-		for (int i = 0; i < xy_1.size(); i++) {
-			for (int j = 0; j < xy_1[0].size(); j++) {
+		
+		double max_u_4x = 5295.707241688835;
+		n_sch = sqrt( (max_u_4x)/(12*4*eps/3))+1;
+		n_sch = (n_sch % 2) ? n_sch + 1 : n_sch;
+		m_sch = n_sch;
+
+		vector<double> x_sch, y_sch;
+		double h_sch = 1 / n_sch, k_sch = 1 / m_sch;
+		for (int i = 0; i <= n_sch; i++) {
+			x_sch.push_back(a + i * h_sch);
+		}
+		for (int i = 0; i <= m_sch; i++) {
+			y_sch.push_back(c + i * k_sch);
+		}
+
+		for (int i = 1; i < (n_sch)/2; i++){
+			for (int j = 1; j < m_sch; j++){
 				tmp += u(x[i], y[j]) * u(x[i], y[j]);
 			}
 		}
-		for (int i = 0; i < xy_2.size(); i++) {
-			for (int j = 0; j < xy_2[0].size(); j++) {
+		for (int i = 1; i < n_sch/2; i++) {
+			for (int j = 1; j < xy_2[0].size(); j++) {
 				tmp += u(x[i + n / 2 + 1], y[j]) * u(x[i + n / 2 + 1], y[j]);
 			}
 		}
+
 		z0_norm_2 = sqrt(tmp);
 		double eps_met = eps / 3;
 		double mu_A = M_max / M_min;
@@ -215,17 +231,18 @@ public:
 		double k2 = 1 / k / k;
 		// Невязка:
 		double a_coef = -2 * (h2 + k2);
-
 		for (int i = 1; i < n / 2; i++) {
 			for (int j = 1; j < m; j++) {
 				r_1[i][j] = a_coef * xy_1[i][j] + h2 * (xy_1[i - 1][j] + xy_1[i + 1][j]) + k2 * (xy_1[i][j + 1] +  xy_1[i][j - 1]) + f(x[i], y[j]);
 				r_max = fmax(r_max, fabs(r_1[i][j]));
+				r2_norm += r_1[i][j] * r_1[i][j];
 			}
 		}
 		for (int i = 1; i < n / 2 - 1; i++) {
 			for (int j = 1; j < m / 2; j++) {
 				r_2[i][j] = a_coef * xy_2[i][j] + h2 * (xy_2[i - 1][j] + xy_2[i + 1][j]) + k2 *(xy_2[i][j + 1] + xy_2[i][j - 1]) + f(x[i + n / 2 + 1], y[j]);
 				r_max = fmax(r_max, fabs(r_2[i][j]));
+				r2_norm += r_2[i][j] * r_2[i][j];
 			}
 		}
 		// невязка на границе двух частей: xy_1 и xy_2
@@ -235,6 +252,7 @@ public:
 				k2 * (xy_1[i][j + 1] + xy_1[i][j - 1]) +
 				f(x[i], y[j]);
 			r_max = fmax(r_max, fabs(r_1[i][j]));
+			r2_norm += r_2[i][j] * r_1[i][j];
 		}
 		i = 0;
 		for (int j = 1; j < m / 2; j++) {
@@ -242,14 +260,15 @@ public:
 				k2 * (xy_2[i][j + 1] +  xy_2[i][j - 1]) +
 				f(x[n / 2 + 1], y[j]);
 			r_max = fmax(r_max, fabs(r_2[i][j]));
+			r2_norm += r_2[i][j] * r_2[i][j];
 		}
+		r2_norm = sqrt(r2_norm);
 	}
 	void step(vector<vector<double>>& xy, const vector<vector<double>>& r_s, double tau, vector<vector<double>>& d_m, double shift) {
 		//Численное решение
 		// [ x^(s+1) - x^(s) ]/tau +Ax^(s)  = b
 		// x^(s+1) = tau*(b - Ax^(s)) + x^(s)  
 		// x^(s+1) = x^(s) - tau*(r^(s))
-		// Можно оптимизировать(не считать значения на границе)
 		double tmp,loc_eps_method = 0;
 #pragma omp parallel for collapse(2) reduction(max:eps, max_dif, loc_eps_method) // collapse(2) для параллелизации обоих циклов
 		for (int i = 0; i < xy.size(); i++) {
@@ -275,16 +294,6 @@ public:
 	pair<double, double> l_min_max() {
 		double l_min = abs(lambd(1,1));
 		double l_max = abs(lambd(n-1,m-1));
-		/*
-		double tmp = 0;
-		for (int i = 1; i < n; i++) {
-			for (int j = 1; j < m; j++) {
-				tmp = abs(lambd(i, j));
-				l_min = fmin(l_min, tmp);
-				l_max = fmax(l_max, tmp);
-			}
-		}
-		*/
 		return { l_min, l_max};
 	}
 
@@ -299,11 +308,13 @@ public:
 		calc_params(eps_user,M_max, M_min);
 		//Заполнение сетки граничными условиями:	
 		fill_border_conditions();
-		
+		r_s();
+		r2_0 = r2_norm;
 		eps_method = eps_user;
 		iterations = 0;
 		for (iterations; iterations < N_max; iterations++) {
 			r_max = 0;
+			r2_norm = 0;
 			eps = 0;
 			eps_method = accur_user;
 			max_dif = 0;
@@ -313,27 +324,18 @@ public:
 			global_cur_eps_method = eps_method;
 			global_cur_eps = eps;
 			if (eps < eps_user && eps_exit) {
-				//cout << "Выход по погрешности:\n";
-				//cout << "Шаг " << 1 + iterations << "):\n";
-				//cout << "Норма невязки:" << r_max << "\nОбщая погрешность:" << eps << "\nТочность метода:" << eps_method << endl;
 				break;
 			}
 			else if (eps_method < accur_user && accur_exit) {
-				//cout << "Выход по точности:\n";
-				//cout << "Шаг " << 1 + iterations << "):\n";
-				//cout << "Норма невязки:" << r_max << "\nОбщая погрешность:" << eps << "\nТочность метода:" << eps_method << endl;
 				break;
 			}
 
 		}
 		r_max = 0;
 		r_s();
+		r2_N = r2_norm;
 		this->res_N = iterations;
 		iterations = N_max;
-		//cout << "Выход по числу итераций:\n";
-		//show_matrix(xy_1, xy_2);
-		//cout << "Норма невязки:" << r_max << "\nОбщая погрешность:" << eps << "\nТочность метода:" << eps_method<<endl;
-		//cout << "Количество итераций:" << iterations;
 	}
 };
 extern "C" __declspec(dllexport) void calc_params(int n, int m, double eps, double eps_method) {
@@ -365,6 +367,8 @@ extern "C" __declspec(dllexport)  void main_f(int n, int m, int N_max, double ep
 
 	csvWriter<double>::write("extra_info.csv", path_to_save, { "макс. общая погрешность: ","макс. невязка: ","макс. точность метода: ","Число шагов:","макс. |u(x;y) - v(x;y)| = ","при x = ","при y = ","Параметр tau: ","n: ","m: "}, {{sol.eps,sol.r_max,sol.eps_method,(double)sol.res_N,sol.max_dif, sol.argmax_dif_x,sol.argmax_dif_y,sol.tau, (double)n, (double)m}});
 	
+	csvWriter<double>::write("theoretical_info.csv", path_to_save, { "Норма невязки на нулевом шаге: ","норма невязки на последнем шаге: " }, { {sol.r2_0,sol.r2_N} });
+
 	global_eps = 0.;
 	global_eps_method = 0.;
 }
