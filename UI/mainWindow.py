@@ -17,7 +17,20 @@ from threading import Thread
 is_busy = False
 
 ui_file = './UI/MainWindow.ui'
+import time
 
+class ProgressThread(QThread):
+    progress_signal  = pyqtSignal(int)
+    def __init__(self,progress_func, max_progress_value = 10000):
+        super().__init__()
+        self.progress = 0
+        self.progress_func = progress_func
+        self.max_progress_value = max_progress_value
+    def run(self):
+        while True:
+            self.progress = int(self.progress_func()*self.max_progress_value)
+            self.progress_signal.emit(self.progress)
+            time.sleep(0.5)
 def create_plot(parent):
     parent.fig = Figure(figsize=(parent.width() / 100, parent.height() / 100))
     parent.canvas = FigureCanvas(parent.fig)
@@ -45,8 +58,8 @@ class UI_mainWindow(QMainWindow):
         # функционал кнопок
         self.threads = {"calculating":None, "progress_bar":None}
 
-
         self.calculate_button.clicked.connect(self.new_thread_calculating)
+
         self.plot_button.clicked.connect(
             self.plotting)  # задание функционала. В данной строке: построение графика при нажатии на кнопку "Построить"
         self.delete_plot.clicked.connect(
@@ -80,9 +93,16 @@ class UI_mainWindow(QMainWindow):
         self.progress_func.argtypes = []
         self.progress_func.restype = ctypes.c_float
 
+
+        self.progressBar.setMaximum(10000)
+        self.progress_thread = ProgressThread(self.progress_func,10000)
+        self.progress_thread.progress_signal.connect(self.update_progress_bar)
+        self.progress_thread.start()
         # настройка включения второго окна
         # self.info_button.triggered.connect(lambda: self.info_window("my_info.pdf"))
 
+    def update_progress_bar(self,val):
+        self.progressBar.setValue(val)
     def new_thread_calculating(self):
         global is_busy
         if is_busy:
@@ -90,17 +110,16 @@ class UI_mainWindow(QMainWindow):
         is_busy = True
         self.threads['calculating'] = Thread(target=self.calculating)
         self.threads['calculating'].start()
-        self.threads['progress_bar'] = Thread(target=self.run_progressbar)
-        self.threads['progress_bar'].start()
+        #self.threads['progress_bar'] = Thread(target=self.run_progressbar)
+        #self.threads['progress_bar'].start()
     def run_progressbar(self):
         global is_busy
-        self.progressBar.setValue(0)
-        self.progressBar.setMaximum(10000)
-        self.progressBar.setMinimum(0)
-        while self.progressBar.value() < 10000 and is_busy:
+        while self.progressBar.value() < self.progressBar_MaxValue and is_busy:
             cur_step = self.progress_func()
-            self.progressBar.setValue(int(cur_step * 10000))
+            cur_percent = int(cur_step * self.progressBar_MaxValue)
+            self.progressBar.setValue(cur_percent)
         self.progressBar.setValue(0)
+
     def standart_params(self):
         self.n, self.m, self.N_max, self.eps, self.accur = (10, 10, 100, 5e-7, 1e-12)
         self.input_n.setText(str(self.n))
@@ -179,8 +198,6 @@ class UI_mainWindow(QMainWindow):
 
 
     def plotting(self):
-        if is_busy:
-            return
         self.statusBar.showMessage(f'Строятся графики')
         a = 0
         b = 1
