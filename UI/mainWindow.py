@@ -82,6 +82,7 @@ class UI_mainWindow(QMainWindow):
         lib_dir = os.path.join(os.curdir, 'dll', 'Release', "libNM1_lib.dll")  # Что запускаем
         lib = ctypes.windll.LoadLibrary(lib_dir)
 
+        # функция расчёта
         self.calculating_func = lib.main_f
         self.calculating_func.argtypes = [ctypes.c_int, ctypes.c_int,  # n, m
                             ctypes.c_int,  # N_max
@@ -91,6 +92,15 @@ class UI_mainWindow(QMainWindow):
                             ctypes.c_int  # eps_exit
                             ]
         self.calculating_func.restype = ctypes.c_void_p
+        # функция расчёта параметров
+        self.calc_params = lib.calc_params
+        self.calc_params.argtypes  =  [ctypes.c_int, ctypes.c_int,  ctypes.c_double, ctypes.c_double]
+        self.calc_params.restype  = ctypes.c_void_p
+        def calculating_params():
+            eps = float(self.input_eps.text())
+            self.calc_params(self.n, self.m, eps, self.accur)
+            self.update_extra_info_table(self.params_info,pd.read_csv('data/Needed_params.csv'))
+        self.params_button.clicked.connect(calculating_params)
 
         self.progress_func = lib.get_iteration
         self.progress_func.argtypes = []
@@ -135,7 +145,7 @@ class UI_mainWindow(QMainWindow):
         self.clear_table(self.info_table_dif2)
         self.clear_table(self.info_table_r1)
         self.clear_table(self.info_table_r2)
-        self.clear_exrta_info_table()
+        self.clear_exrta_info_table(self.extra_info_layout)
 
     def clear_plot(self, cur_plot_widget):
         cur_plot_widget.plot.cla()
@@ -162,20 +172,20 @@ class UI_mainWindow(QMainWindow):
                 table.append(line.split(' '))
         return table
 
-    def clear_exrta_info_table(self):
-        while self.extra_info_layout.count():
-            item = self.extra_info_layout.takeAt(0)
+    def clear_exrta_info_table(self,field):
+        while field.count():
+            item = field.takeAt(0)
             widget = item.widget()
             if widget is not None:
                 widget.deleteLater()
 
-    def update_extra_info_table(self, df):
-        self.clear_exrta_info_table()
+    def update_extra_info_table(self,field, df):
+        self.clear_exrta_info_table(field)
         i = 0
         cols = df.columns
         for i in range(len(cols)):
             cur_text = f"{cols[i]} {df.iloc[0, i]}"
-            self.extra_info_layout.addWidget(QLabel(cur_text, self))
+            field.addWidget(QLabel(cur_text, self))
             i += 1
 
     def calculating(self):
@@ -225,10 +235,7 @@ class UI_mainWindow(QMainWindow):
         f_extra_info = os.path.join(path_to_experiment,  'extra_info.csv')
 
 
-
-
-        self.clear_exrta_info_table()
-        self.update_extra_info_table(pd.read_csv(f_extra_info, encoding='cp1251'))
+        self.update_extra_info_table(self.extra_info_layout,pd.read_csv(f_extra_info, encoding='cp1251'))
 
         table_v1 = np.genfromtxt(f_v1, delimiter=',')
         table_v2 = np.genfromtxt(f_v2, delimiter=',')

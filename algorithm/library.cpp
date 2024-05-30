@@ -1,4 +1,4 @@
-#include <iostream>
+п»ї#include <iostream>
 #include <vector>
 #include <cmath>
 
@@ -21,8 +21,8 @@ int global_eps_method_exit = 0;
 
 extern "C" __declspec(dllexport) float get_iteration() {
 	float cur_percent = 0;
-	float eps_percent = min({ (float)(global_eps_exit * global_eps / global_cur_eps) ,1.f });
-	float eps_method_percent = min({ (float)(global_eps_method_exit * global_eps_method / global_cur_eps_method),  1.f});
+	float eps_percent = min({ (float)((float)global_eps_exit * global_eps / global_cur_eps) ,1.f });
+	float eps_method_percent = min({ (float)(float)(global_eps_method_exit * global_eps_method / global_cur_eps_method),  1.f});
 	cur_percent = max({ (float)iterations / (float)global_N_max , eps_percent, eps_method_percent });
 	return cur_percent;
 }
@@ -119,18 +119,21 @@ public:
 	double eps_method = 0;
 	double r_max = 0;
 
-	//число итераций для достижения точности V
+	//С‡РёСЃР»Рѕ РёС‚РµСЂР°С†РёР№ РґР»СЏ РґРѕСЃС‚РёР¶РµРЅРёСЏ С‚РѕС‡РЅРѕСЃС‚Рё V
 	double z0_norm_2 = 0;
 	int s_met = 0;
 	int n_sch = 0, m_sch = 0;
-	//число итераций для достижения точности ^
+	//С‡РёСЃР»Рѕ РёС‚РµСЂР°С†РёР№ РґР»СЏ РґРѕСЃС‚РёР¶РµРЅРёСЏ С‚РѕС‡РЅРѕСЃС‚Рё ^
 
-	//переменные для теоретических расчётов V
+	//РїРµСЂРµРјРµРЅРЅС‹Рµ РґР»СЏ С‚РµРѕСЂРµС‚РёС‡РµСЃРєРёС… СЂР°СЃС‡С‘С‚РѕРІ V
 	double r2_norm = 0;
 	double r2_0 = 0;
 	double r2_N = 0;
 
-	//переменные для теоретических расчётов ^
+
+
+	//РїРµСЂРµРјРµРЅРЅС‹Рµ РґР»СЏ С‚РµРѕСЂРµС‚РёС‡РµСЃРєРёС… СЂР°СЃС‡С‘С‚РѕРІ ^
+
 
 	int res_N = 0;
 	vector<double> x, y;
@@ -139,7 +142,7 @@ public:
 	double tau;
 	Solution(double a, double b, double c, double  d, int n, int m) {
 		if (!check_for_multiplicity(n, m) || n<=0 ||m<=0) {
-			throw exception("Сетка не накладывается на область");
+			throw exception("РЎРµС‚РєР° РЅРµ РЅР°РєР»Р°РґС‹РІР°РµС‚СЃСЏ РЅР° РѕР±Р»Р°СЃС‚СЊ");
 		}
 		this->n = n;
 		this->m = m;
@@ -150,7 +153,7 @@ public:
 		this->h = (b - a) / n;
 		this->k = (d - c) / m;
 
-		//вспомогательные векторы (значения x, y на сетке)
+		//РІСЃРїРѕРјРѕРіР°С‚РµР»СЊРЅС‹Рµ РІРµРєС‚РѕСЂС‹ (Р·РЅР°С‡РµРЅРёСЏ x, y РЅР° СЃРµС‚РєРµ)
 		for (int i = 0; i <= n; i++) {
 			x.push_back(a + i * h);
 		}
@@ -158,61 +161,49 @@ public:
 			y.push_back(c + i * k);
 		}
 
-		xy_1 = vector(n / 2 + 1, vector<double>(m + 1, 0));
-		xy_2 = vector(n / 2, vector<double>(m / 2 + 1, 0));
+		xy_1 = vector<vector<double>>(n / 2 + 1, vector<double>(m + 1, 0));
+		xy_2 = vector<vector<double>>(n / 2, vector<double>(m / 2 + 1, 0));
 
-		r_1 = vector(n / 2 + 1, vector<double>(m + 1, 0));
-		r_2 = vector(n / 2, vector<double>(m / 2 + 1, 0));
+		r_1 = vector<vector<double>>(n / 2 + 1, vector<double>(m + 1, 0));
+		r_2 = vector<vector<double>>(n / 2, vector<double>(m / 2 + 1, 0));
 
-		dif_matrix_1 = vector(n / 2 + 1, vector<double>(m + 1, 0));
-		dif_matrix_2 = vector(n / 2, vector<double>(m / 2 + 1, 0));
+		dif_matrix_1 = vector<vector<double>>(n / 2 + 1, vector<double>(m + 1, 0));
+		dif_matrix_2 = vector<vector<double>>(n / 2, vector<double>(m / 2 + 1, 0));
+		fill_border_conditions();
+		r_s();
+		r2_0 = r2_norm;
+
 	}
 
-	void calc_params(double eps, double M_max, double M_min) {
+	void calc_params(double eps) {
 		double tmp = 0;
-		
+
 		double max_u_4x = 5295.707241688835;
-		n_sch = sqrt( (max_u_4x)/(12*4*eps/3))+1;
+		double eps_sch = eps / 2;
+		n_sch = sqrt((max_u_4x) / (12 * 4 * eps_sch)) + 1;
 		n_sch = (n_sch % 2) ? n_sch + 1 : n_sch;
 		m_sch = n_sch;
 
 		vector<double> x_sch, y_sch;
 		double h_sch = 1 / n_sch, k_sch = 1 / m_sch;
-		for (int i = 0; i <= n_sch; i++) {
-			x_sch.push_back(a + i * h_sch);
-		}
-		for (int i = 0; i <= m_sch; i++) {
-			y_sch.push_back(c + i * k_sch);
-		}
-
-		for (int i = 1; i < (n_sch)/2; i++){
-			for (int j = 1; j < m_sch; j++){
-				tmp += u(x[i], y[j]) * u(x[i], y[j]);
-			}
-		}
-		for (int i = 1; i < n_sch/2; i++) {
-			for (int j = 1; j < xy_2[0].size(); j++) {
-				tmp += u(x[i + n / 2 + 1], y[j]) * u(x[i + n / 2 + 1], y[j]);
-			}
-		}
-
-		z0_norm_2 = sqrt(tmp);
-		double eps_met = eps / 3;
-		double mu_A = M_max / M_min;
-		s_met = log(eps_met /z0_norm_2)/log((mu_A - 1)/(mu_A + 1));
 		
-		csvWriter<int>::write("Needed_params.csv", path_to_save, {"n: ","m: ","s_met: "}, {{n_sch, m_sch, s_met}});
+		pair<double, double> lambds= l_min_max(n_sch, m_sch);
+		double eps_met = eps / 2;
+		double mu_A = lambds.second / lambds.first;
+		s_met = log(eps_met * lambds.first/r2_0) / log((mu_A - 1) / (mu_A + 1));
+
+		csvWriter<int>::write("Needed_params.csv", path_to_save, { "n: ","m: ","s_met: " }, { {n_sch, m_sch, s_met} });
 	}
 
 	void show_matrix(const vector<vector<double>>& xy_1, const vector<vector<double>>& xy_2) {
-		std::cout << "Первая часть:\n";
+		std::cout << "РџРµСЂРІР°СЏ С‡Р°СЃС‚СЊ:\n";
 		for (int j = xy_1[0].size() - 1; j >= 0; j--) {
 			for (size_t i = 0; i < xy_1.size(); i++) {
 				std::cout << xy_1[i][j] << ' ';
 			}
 			std::cout << '\n';
 		}
-		std::cout << "Вторая часть:\n";
+		std::cout << "Р’С‚РѕСЂР°СЏ С‡Р°СЃС‚СЊ:\n";
 		for (int j = xy_2[0].size() - 1; j >= 0; j--) {
 			for (size_t i = 0; i < xy_2.size(); i++) {
 				std::cout << xy_2[i][j] << ' ';
@@ -221,7 +212,7 @@ public:
 		}
 	}
 	void r_s() {
-		// Невязка:
+		// РќРµРІСЏР·РєР°:
 
 		size_t n = x.size() - 1;
 		size_t m = y.size() - 1;
@@ -229,35 +220,35 @@ public:
 		double k = y[1] - y[0];
 		double h2 = 1 / h / h;
 		double k2 = 1 / k / k;
-		// Невязка:
+		// РќРµРІСЏР·РєР°:
 		double a_coef = -2 * (h2 + k2);
 		for (int i = 1; i < n / 2; i++) {
 			for (int j = 1; j < m; j++) {
-				r_1[i][j] = a_coef * xy_1[i][j] + h2 * (xy_1[i - 1][j] + xy_1[i + 1][j]) + k2 * (xy_1[i][j + 1] +  xy_1[i][j - 1]) + f(x[i], y[j]);
+				r_1[i][j] = a_coef * xy_1[i][j] + h2 * (xy_1[i - 1][j] + xy_1[i + 1][j]) + k2 * (xy_1[i][j + 1] + xy_1[i][j - 1]) + f(x[i], y[j]);
 				r_max = fmax(r_max, fabs(r_1[i][j]));
 				r2_norm += r_1[i][j] * r_1[i][j];
 			}
 		}
 		for (int i = 1; i < n / 2 - 1; i++) {
 			for (int j = 1; j < m / 2; j++) {
-				r_2[i][j] = a_coef * xy_2[i][j] + h2 * (xy_2[i - 1][j] + xy_2[i + 1][j]) + k2 *(xy_2[i][j + 1] + xy_2[i][j - 1]) + f(x[i + n / 2 + 1], y[j]);
+				r_2[i][j] = a_coef * xy_2[i][j] + h2 * (xy_2[i - 1][j] + xy_2[i + 1][j]) + k2 * (xy_2[i][j + 1] + xy_2[i][j - 1]) + f(x[i + n / 2 + 1], y[j]);
 				r_max = fmax(r_max, fabs(r_2[i][j]));
 				r2_norm += r_2[i][j] * r_2[i][j];
 			}
 		}
-		// невязка на границе двух частей: xy_1 и xy_2
+		// РЅРµРІСЏР·РєР° РЅР° РіСЂР°РЅРёС†Рµ РґРІСѓС… С‡Р°СЃС‚РµР№: xy_1 Рё xy_2
 		int i = n / 2;
 		for (int j = 1; j < m / 2; j++) {
-			r_1[i][j] = a_coef * xy_1[i][j] + h2 * (xy_1[i - 1][j] +  xy_2[0][j]) +
+			r_1[i][j] = a_coef * xy_1[i][j] + h2 * (xy_1[i - 1][j] + xy_2[0][j]) +
 				k2 * (xy_1[i][j + 1] + xy_1[i][j - 1]) +
 				f(x[i], y[j]);
 			r_max = fmax(r_max, fabs(r_1[i][j]));
-			r2_norm += r_2[i][j] * r_1[i][j];
+			r2_norm += r_1[i][j] * r_1[i][j];
 		}
 		i = 0;
 		for (int j = 1; j < m / 2; j++) {
-			r_2[i][j] = a_coef * xy_2[i][j] + h2 * (xy_1[n / 2][j] +  xy_2[i + 1][j]) +
-				k2 * (xy_2[i][j + 1] +  xy_2[i][j - 1]) +
+			r_2[i][j] = a_coef * xy_2[i][j] + h2 * (xy_1[n / 2][j] + xy_2[i + 1][j]) +
+				k2 * (xy_2[i][j + 1] + xy_2[i][j - 1]) +
 				f(x[n / 2 + 1], y[j]);
 			r_max = fmax(r_max, fabs(r_2[i][j]));
 			r2_norm += r_2[i][j] * r_2[i][j];
@@ -265,15 +256,15 @@ public:
 		r2_norm = sqrt(r2_norm);
 	}
 	void step(vector<vector<double>>& xy, const vector<vector<double>>& r_s, double tau, vector<vector<double>>& d_m, double shift) {
-		//Численное решение
+		//Р§РёСЃР»РµРЅРЅРѕРµ СЂРµС€РµРЅРёРµ
 		// [ x^(s+1) - x^(s) ]/tau +Ax^(s)  = b
 		// x^(s+1) = tau*(b - Ax^(s)) + x^(s)  
 		// x^(s+1) = x^(s) - tau*(r^(s))
 		double tmp,loc_eps_method = 0;
-#pragma omp parallel for collapse(2) reduction(max:eps, max_dif, loc_eps_method) // collapse(2) для параллелизации обоих циклов
+#pragma omp parallel for collapse(2) reduction(max:eps, max_dif, loc_eps_method) // collapse(2) РґР»СЏ РїР°СЂР°Р»Р»РµР»РёР·Р°С†РёРё РѕР±РѕРёС… С†РёРєР»РѕРІ
 		for (int i = 0; i < xy.size(); i++) {
 			for (int j = 0; j < xy[0].size(); j++) {
-				xy[i][j] = xy[i][j] - tau * r_s[i][j] * (-1);//т.к. матрица не является положительно определенной
+				xy[i][j] = xy[i][j] - tau * r_s[i][j] * (-1);//С‚.Рє. РјР°С‚СЂРёС†Р° РЅРµ СЏРІР»СЏРµС‚СЃСЏ РїРѕР»РѕР¶РёС‚РµР»СЊРЅРѕ РѕРїСЂРµРґРµР»РµРЅРЅРѕР№
 				eps = fmax(eps,fabs( u(x[i+shift],y[j]) - xy[i][j]));
 				d_m[i][j] = fabs(u(x[i+shift], y[j]) - xy[i][j]);
 				if (d_m[i][j] > max_dif) {
@@ -287,29 +278,27 @@ public:
 		eps_method = loc_eps_method;
 	}
 
-	double lambd(int l, int s) {
+	double lambd(int l, int s,int n,int m) {
+		double h = (b - a) / (double)n;
+		double k = (d - c) / (double)m;
 		return -(4 / h / h * pow(sin(PI * l / 2 / n), 2) + 4 / k / k * pow(sin(PI*s/2/m), 2));
 	}
 
-	pair<double, double> l_min_max() {
-		double l_min = abs(lambd(1,1));
-		double l_max = abs(lambd(n-1,m-1));
+	pair<double, double> l_min_max(int n,int m) {
+		double l_min = abs(lambd(1,1,n,m));
+		double l_max = abs(lambd(n-1,m-1,n,m));
 		return { l_min, l_max};
 	}
 
 	void process(int N_max,double eps_user, double accur_user, int accur_exit, int eps_exit) {
-		//Именно для задачи Дирихле уравнения Пуассона
-		pair<double, double> l_m_M = l_min_max();
+		//РРјРµРЅРЅРѕ РґР»СЏ Р·Р°РґР°С‡Рё Р”РёСЂРёС…Р»Рµ СѓСЂР°РІРЅРµРЅРёСЏ РџСѓР°СЃСЃРѕРЅР°
+		pair<double, double> l_m_M = l_min_max(n,m);
 
 		double M_max = l_m_M.second;
 		double M_min = l_m_M.first;
 
 		tau = 2 / (M_min+M_max);
-		calc_params(eps_user,M_max, M_min);
-		//Заполнение сетки граничными условиями:	
-		fill_border_conditions();
-		r_s();
-		r2_0 = r2_norm;
+
 		eps_method = eps_user;
 		iterations = 0;
 		for (iterations; iterations < N_max; iterations++) {
@@ -338,8 +327,10 @@ public:
 		iterations = N_max;
 	}
 };
-extern "C" __declspec(dllexport) void calc_params(int n, int m, double eps, double eps_method) {
-
+extern "C" __declspec(dllexport) void calc_params(int n, int m, double eps_user, double eps_method) {
+	double a = 0., b = 1., c = 0., d = 1.;
+	Solution sol(a, b, c, d, n, m);
+	sol.calc_params(eps_user);
 }
 extern "C" __declspec(dllexport)  void main_f(int n, int m, int N_max, double eps,double accur, int accur_exit, int eps_exit) {
 	double a = 0., b = 1., c = 0., d = 1.;
@@ -365,9 +356,9 @@ extern "C" __declspec(dllexport)  void main_f(int n, int m, int N_max, double ep
 	csvWriter<double>::write("v_part1.csv", path_to_save, {}, sol.xy_1);
 	csvWriter<double>::write("v_part2.csv", path_to_save, {}, sol.xy_2);
 
-	csvWriter<double>::write("extra_info.csv", path_to_save, { "макс. общая погрешность: ","макс. невязка: ","макс. точность метода: ","Число шагов:","макс. |u(x;y) - v(x;y)| = ","при x = ","при y = ","Параметр tau: ","n: ","m: "}, {{sol.eps,sol.r_max,sol.eps_method,(double)sol.res_N,sol.max_dif, sol.argmax_dif_x,sol.argmax_dif_y,sol.tau, (double)n, (double)m}});
+	csvWriter<double>::write("extra_info.csv", path_to_save, { "РјР°РєСЃ. РѕР±С‰Р°СЏ РїРѕРіСЂРµС€РЅРѕСЃС‚СЊ: ","РјР°РєСЃ. РЅРµРІСЏР·РєР°: ","РјР°РєСЃ. С‚РѕС‡РЅРѕСЃС‚СЊ РјРµС‚РѕРґР°: ","Р§РёСЃР»Рѕ С€Р°РіРѕРІ:","РјР°РєСЃ. |u(x;y) - v(x;y)| = ","РїСЂРё x = ","РїСЂРё y = ","РџР°СЂР°РјРµС‚СЂ tau: ","n: ","m: "}, {{sol.eps,sol.r_max,sol.eps_method,(double)sol.res_N,sol.max_dif, sol.argmax_dif_x,sol.argmax_dif_y,sol.tau, (double)n, (double)m}});
 	
-	csvWriter<double>::write("theoretical_info.csv", path_to_save, { "Норма невязки на нулевом шаге: ","норма невязки на последнем шаге: " }, { {sol.r2_0,sol.r2_N} });
+	csvWriter<double>::write("theoretical_info.csv", path_to_save, { "РќРѕСЂРјР° РЅРµРІСЏР·РєРё РЅР° РЅСѓР»РµРІРѕРј С€Р°РіРµ: ","РЅРѕСЂРјР° РЅРµРІСЏР·РєРё РЅР° РїРѕСЃР»РµРґРЅРµРј С€Р°РіРµ: " }, { {sol.r2_0,sol.r2_N} });
 
 	global_eps = 0.;
 	global_eps_method = 0.;

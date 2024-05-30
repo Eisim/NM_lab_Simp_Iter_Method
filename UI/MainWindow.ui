@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>918</width>
-    <height>970</height>
+    <width>925</width>
+    <height>1020</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -187,7 +187,31 @@
         </spacer>
        </item>
        <item row="2" column="2">
-        <layout class="QVBoxLayout" name="extra_info_params"/>
+        <layout class="QVBoxLayout" name="extra_info_params">
+         <item>
+          <layout class="QVBoxLayout" name="params_info"/>
+         </item>
+         <item>
+          <widget class="QPushButton" name="params_button">
+           <property name="text">
+            <string>Расчёт параметров для достижения погрешности</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="verticalSpacer_2">
+           <property name="orientation">
+            <enum>Qt::Vertical</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>20</width>
+             <height>40</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+        </layout>
        </item>
        <item row="2" column="1">
         <widget class="Line" name="line_4">
@@ -558,7 +582,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>918</width>
+     <width>925</width>
      <height>26</height>
     </rect>
    </property>
