@@ -49,9 +49,11 @@ class UI_mainWindow(QMainWindow):
         # создание окон для графиков
         self.plt = create_plot(self.plot_widget_func)
         self.plt_widget_dif = create_plot(self.plot_widget_dif)
+        self.plot_widget_u = create_plot(self.plot_widget_u_canvas)
         # присвоение мест для окон
         self.plot_widget_func.canvas.setParent(self.plot_widget_func)
         self.plot_widget_dif.canvas.setParent(self.plot_widget_dif)
+        self.plot_widget_u_canvas.canvas.setParent(self.plot_widget_u_canvas)
         self.tabWidget.currentChanged.connect(
             self.toolBar_changing)  # задание функционала. В данной строке: Меняет тулбар при переходе на другую вклвдку
         self.plot_toolBar = NavigationToolbar(self.plot_widget_func.canvas, self)
@@ -76,7 +78,7 @@ class UI_mainWindow(QMainWindow):
 
         self.plot_widget_dif.plot.set_xlabel("x")
         self.plot_widget_dif.plot.set_ylabel("y")
-        self.plot_widget_dif.plot.set_zlabel("$U(x,y) - V(x,y)$")
+        self.plot_widget_dif.plot.set_zlabel("$|U(x,y) - V(x,y)|$")
 
         # подключение библиотеки
         lib_dir = os.path.join(os.curdir, 'dll', 'Release', "libNM1_lib.dll")  # Что запускаем
@@ -139,6 +141,7 @@ class UI_mainWindow(QMainWindow):
     def clear_plots(self):
         self.clear_plot(self.plot_widget_func)
         self.clear_plot(self.plot_widget_dif)
+        self.clear_plot(self.plot_widget_u_canvas)
         self.clear_table(self.info_table_v1)
         self.clear_table(self.info_table_v2)
         self.clear_table(self.info_table_dif1)
@@ -146,7 +149,7 @@ class UI_mainWindow(QMainWindow):
         self.clear_table(self.info_table_r1)
         self.clear_table(self.info_table_r2)
         self.clear_exrta_info_table(self.extra_info_layout)
-
+        self.clear_exrta_info_table(self.extra_info_layout_2)
     def clear_plot(self, cur_plot_widget):
         cur_plot_widget.plot.cla()
         cur_plot_widget.canvas.draw()  # обновление окна
@@ -225,7 +228,11 @@ class UI_mainWindow(QMainWindow):
 
         f_v1 = os.path.join(path_to_experiment, 'v_part1.csv')
         f_v2 = os.path.join(path_to_experiment,  'v_part2.csv')
-
+        try:
+            f_u1 = os.path.join(path_to_experiment, 'u_part1.csv')
+            f_u2 = os.path.join(path_to_experiment,  'u_part2.csv')
+        except:
+            pass
         f_r1 = os.path.join(path_to_experiment,  'r_part1.csv')
         f_r2 = os.path.join(path_to_experiment,   'r_part2.csv')
 
@@ -236,16 +243,21 @@ class UI_mainWindow(QMainWindow):
 
 
         self.update_extra_info_table(self.extra_info_layout,pd.read_csv(f_extra_info, encoding='cp1251'))
+        try:
+            f_extra_info_2 = os.path.join(path_to_experiment,  'extra_info_2.csv')
+            self.update_extra_info_table(self.extra_info_layout_2,pd.read_csv(f_extra_info_2, encoding='cp1251'))
+        except:
+            pass
+
+
 
         table_v1 = np.genfromtxt(f_v1, delimiter=',')
         table_v2 = np.genfromtxt(f_v2, delimiter=',')
-        table_dif1 = np.genfromtxt(f_dif1, delimiter=',')
-        table_dif2 = np.genfromtxt(f_dif2, delimiter=',')
-        table_r1 = np.genfromtxt(f_r1, delimiter=',')
-        table_r2 = np.genfromtxt(f_r2, delimiter=',')
-        n = table_v1.shape[0]+table_v2.shape[0]-1
-        m =table_v1.shape[1] - 1
+
+        n = table_v1.shape[0] + table_v2.shape[0] - 1
+        m = table_v1.shape[1] - 1
         first_part2_index = m // 2 + 1
+
         x_arr = np.linspace(a, b, n + 1)
         y_arr = np.linspace(c, d, m + 1)
 
@@ -253,12 +265,27 @@ class UI_mainWindow(QMainWindow):
         y1_arr = y_arr
         x2_arr = x_arr[n // 2:]
         y2_arr = y_arr[:first_part2_index]
-
         x1, y1 = np.meshgrid(x1_arr, y1_arr)
+        x2, y2 = np.meshgrid(x2_arr, y2_arr)
+        try:
+            table_u1 = np.genfromtxt(f_u1, delimiter=',')
+            table_u2 = np.genfromtxt(f_u2, delimiter=',')
+            u1 = table_u1.T
+            u2 = np.insert(table_u2, 0, u1[:first_part2_index, -1], axis=0).T
+            self.plot_widget_u_canvas.plot.plot_surface(x1, y1, u1, cmap=plt.cm.plasma)
+            self.plot_widget_u_canvas.plot.plot_surface(x2, y2, u2, cmap=plt.cm.plasma)
+        except:
+            pass
+        table_dif1 = np.genfromtxt(f_dif1, delimiter=',')
+        table_dif2 = np.genfromtxt(f_dif2, delimiter=',')
+        table_r1 = np.genfromtxt(f_r1, delimiter=',')
+        table_r2 = np.genfromtxt(f_r2, delimiter=',')
+
+
+
         z1 = table_v1.T
         dif1 = table_dif1.T
 
-        x2, y2 = np.meshgrid(x2_arr, y2_arr)
         dif2 = np.insert(table_dif2, 0, dif1[:first_part2_index, -1], axis=0).T
         z2 = np.insert(table_v2, 0, z1[:first_part2_index, -1], axis=0).T
 
@@ -308,4 +335,3 @@ class UI_mainWindow(QMainWindow):
     def clear_table(self, table):
         while (table.rowCount() > 0):
             table.removeRow(0)
-

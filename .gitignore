@@ -24,3 +24,4 @@ data/*
 !algorithm/CMakeLists.txt
 !data/
 data/*.csv
+test_prog/
