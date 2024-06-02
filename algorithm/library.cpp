@@ -5,7 +5,7 @@
 #include <iostream>
 #include <fstream>
 
-
+#include<chrono>
 const double PI = 3.1415926535897932384626433832795028841971693993751058209;
 
 using namespace std;
@@ -33,11 +33,12 @@ extern "C" __declspec(dllexport) float get_iteration() {
 
 
 double u(double x, double y) {
-	return exp(pow(sin(PI * x * y), 2));
+	double _sin = sin(PI * x * y);
+	return exp(_sin * _sin);
 }
 double f(double x, double y) {
-
-	return -u(x, y) * (pow(sin(2 * PI * x * y), 2) + 2*cos(2 * PI * x * y)) * PI * PI*(y * y + x * x);
+	double _sin = sin(2 * PI * x * y);
+	return -exp(_sin * _sin) * (_sin * _sin + 2 * cos(2 * PI * x * y)) * PI * PI * (y * y + x * x);
 }
 template<class T>
 class csvWriter {
@@ -79,6 +80,7 @@ class Solution {
 	int n, m;
 	double a, b, c, d, h, k;
 
+
 	bool check_for_multiplicity(int n, int m) {
 		return !((n % 2) && (m % 2));
 	}
@@ -117,6 +119,11 @@ class Solution {
 
 	}
 public:
+	//Время
+	chrono::duration<double> calculating_time;
+
+
+
 	double eps = 0;
 	double eps_method = 0;
 	double r_max = 0;
@@ -318,7 +325,7 @@ public:
 		return { l_min, l_max};
 	}
 
-	void process(int N_max,double eps_user, double accur_user, int accur_exit, int eps_exit) {
+	void process(int N_max,double eps_user, double accur_user, int accur_exit, int eps_exit, int backup_nums) {
 		//Именно для задачи Дирихле уравнения Пуассона
 		pair<double, double> l_m_M = l_min_max(n,m);
 
@@ -329,6 +336,7 @@ public:
 
 		eps_method = eps_user;
 		iterations = 0;
+		auto begin_calculating = chrono::steady_clock::now();
 		for (iterations; iterations < N_max; iterations++) {
 			r_max = 0;
 			r2_norm = 0;
@@ -346,9 +354,7 @@ public:
 			else if (eps_method < accur_user && accur_exit) {
 				break;
 			}
-
-			int iter_for_write_data = 10000;
-			if (iterations>= 10000 && iterations % 10000 == 0) {
+			if (backup_nums && iterations%(N_max/ backup_nums) == 0) {
 				csvWriter<double>::write("r_part1.csv", path_to_save, {}, this->r_1);
 				csvWriter<double>::write("r_part2.csv", path_to_save, {}, this->r_2);
 
@@ -373,6 +379,9 @@ public:
 		r_s();
 		r2_N = r2_norm;
 
+		auto end_calculating = chrono::steady_clock::now();
+		this->calculating_time = chrono::duration_cast<std::chrono::milliseconds>(end_calculating - begin_calculating);
+
 
 		th_eps_met = 1/ M_min* r2_N;
 		double max_u4 = 2602.81;
@@ -387,7 +396,7 @@ extern "C" __declspec(dllexport) void calc_params(int n, int m, double eps_user,
 	Solution sol(a, b, c, d, n, m);
 	sol.calc_params(eps_user);
 }
-extern "C" __declspec(dllexport)  void main_f(int n, int m, int N_max, double eps,double accur, int accur_exit, int eps_exit) {
+extern "C" __declspec(dllexport)  void main_f(int n, int m, int N_max, double eps,double accur, int accur_exit, int eps_exit, int num_backups) {
 	double a = 0., b = 1., c = 0., d = 1.;
 	
 	iterations = 0;
@@ -399,7 +408,7 @@ extern "C" __declspec(dllexport)  void main_f(int n, int m, int N_max, double ep
 
 
 	Solution sol(a,b,c,d, n, m);
-	sol.process(N_max,eps,accur,accur_exit,eps_exit);
+	sol.process(N_max,eps,accur,accur_exit,eps_exit, num_backups);
 
 
 	csvWriter<double>::write("r_part1.csv", path_to_save, {}, sol.r_1);
@@ -417,7 +426,7 @@ extern "C" __declspec(dllexport)  void main_f(int n, int m, int N_max, double ep
 	//,"норма погрешности схемы: ","норма погрешности метода: "
 	//,sol.th_eps_sch,sol.th_eps_met
 	csvWriter<double>::write("extra_info.csv", path_to_save, { "макс. общая погрешность: ","макс. невязка: ","макс. точность метода: ","макс. |u(x;y) - v(x;y)| = ","при x = ","при y = "}, {{sol.eps,sol.r_max,sol.eps_method,sol.max_dif, sol.argmax_dif_x,sol.argmax_dif_y}});
-	csvWriter<double>::write("extra_info_2.csv", path_to_save, {"Число шагов:","Параметр tau: ","n: ","m: " }, { {(double)sol.res_N,sol.tau, (double)n, (double)m} });
+	csvWriter<double>::write("extra_info_2.csv", path_to_save, {"Число шагов:","Параметр tau: ","n: ","m: ","Время расчёта: "}, {{(double)sol.res_N,sol.tau, (double)n, (double)m,(sol.calculating_time.count())}});
 	csvWriter<double>::write("theoretical_info.csv", path_to_save, { "Норма невязки на нулевом шаге: ","норма невязки на последнем шаге: " }, { {sol.r2_0,sol.r2_N} });
 
 	global_eps = 0.;

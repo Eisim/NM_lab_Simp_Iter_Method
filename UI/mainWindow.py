@@ -21,7 +21,7 @@ import time
 
 class ProgressThread(QThread):
     progress_signal  = pyqtSignal(int)
-    def __init__(self,progress_func, max_progress_value = 10000):
+    def __init__(self,progress_func, max_progress_value = 1000000):
         super().__init__()
         self.progress = 0
         self.progress_func = progress_func
@@ -91,18 +91,11 @@ class UI_mainWindow(QMainWindow):
                             ctypes.c_double,  # eps
                             ctypes.c_double,  # accur
                             ctypes.c_int,  # accur_exit
-                            ctypes.c_int  # eps_exit
+                            ctypes.c_int,  # eps_exit
+                            ctypes.c_int,   # backups number
                             ]
         self.calculating_func.restype = ctypes.c_void_p
-        # функция расчёта параметров
-        self.calc_params = lib.calc_params
-        self.calc_params.argtypes  =  [ctypes.c_int, ctypes.c_int,  ctypes.c_double, ctypes.c_double]
-        self.calc_params.restype  = ctypes.c_void_p
-        def calculating_params():
-            eps = float(self.input_eps.text())
-            self.calc_params(self.n, self.m, eps, self.accur)
-            self.update_extra_info_table(self.params_info,pd.read_csv('data/Needed_params.csv'))
-        self.params_button.clicked.connect(calculating_params)
+
 
         self.progress_func = lib.get_iteration
         self.progress_func.argtypes = []
@@ -114,9 +107,10 @@ class UI_mainWindow(QMainWindow):
         self.progress_thread.progress_signal.connect(self.update_progress_bar)
         self.progress_thread.start()
 
-        experiments = os.listdir("experiments")
-        for exp in experiments:
-            self.experiments_combobox.addItem(exp)
+        if os.path.exists("experiments"):
+            experiments = os.listdir("experiments")
+            for exp in experiments:
+                self.experiments_combobox.addItem(exp)
         # настройка включения второго окна
         # self.info_button.triggered.connect(lambda: self.info_window("my_info.pdf"))
 
@@ -127,7 +121,7 @@ class UI_mainWindow(QMainWindow):
         if is_busy:
             return
         is_busy = True
-        self.threads['calculating'] = Thread(target=self.calculating)
+        self.threads['calculating'] = Thread(target=self.calculating, daemon = True)
         self.threads['calculating'].start()
 
     def standart_params(self):
@@ -137,6 +131,7 @@ class UI_mainWindow(QMainWindow):
         self.input_N_max.setText(str(self.N_max))
         self.input_eps.setText(str(self.eps))
         self.input_accur.setText(str(self.accur))
+        self.input_backups.setText(str(10))
 
     def clear_plots(self):
         self.clear_plot(self.plot_widget_func)
@@ -201,14 +196,18 @@ class UI_mainWindow(QMainWindow):
         self.accur = float(self.input_accur.text())
         self.accur_exit = int(self.check_accur.isChecked())
         self.eps_exit = int(self.check_eps.isChecked())
+        self.checkpoints = int(self.input_backups.text())
         self.statusBar.showMessage(f'Расчёт начался')
         is_busy = True
-        self.calculating_func(self.n, self.m, self.N_max, self.eps, self.accur, self.accur_exit, self.eps_exit)
+        self.calculating_func(self.n, self.m, self.N_max, self.eps, self.accur, self.accur_exit, self.eps_exit,self.checkpoints)
         is_busy = False
         self.statusBar.showMessage(f'Расчёт завершен')
 
         experiments = os.listdir('experiments/')
-        exp_ind = max( [int(x.split('_')[0]) for x in experiments]) + 1
+        if len(experiments) == 0:
+            exp_ind = 0
+        else:
+            exp_ind = max( [int(x.split('_')[0]) for x in experiments]) + 1
         cur_experiment  = os.listdir('data/')
         experiment_name = f'{exp_ind}_эксперимент'
         cur_experiment_path = os.path.join('experiments',experiment_name)
@@ -223,8 +222,11 @@ class UI_mainWindow(QMainWindow):
         b = 1
         c = 0
         d = 1
-
+        if len(self.experiments_combobox.currentText())  ==  0:
+            self.statusBar.showMessage(f'Эксперимент не существует')
+            return
         path_to_experiment = os.path.join('experiments',self.experiments_combobox.currentText())
+
 
         f_v1 = os.path.join(path_to_experiment, 'v_part1.csv')
         f_v2 = os.path.join(path_to_experiment,  'v_part2.csv')

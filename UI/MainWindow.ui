@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1147</width>
-    <height>962</height>
+    <height>943</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -188,7 +188,7 @@
            </item>
           </layout>
          </item>
-         <item row="2" column="0">
+         <item row="3" column="0">
           <spacer name="verticalSpacer_4">
            <property name="orientation">
             <enum>Qt::Vertical</enum>
@@ -204,33 +204,15 @@
          <item row="1" column="1">
           <widget class="QLineEdit" name="input_N_max"/>
          </item>
-        </layout>
-       </item>
-       <item row="2" column="2">
-        <layout class="QVBoxLayout" name="extra_info_params">
-         <item>
-          <widget class="QPushButton" name="params_button">
+         <item row="2" column="0">
+          <widget class="QLabel" name="label_13">
            <property name="text">
-            <string>Расчёт параметров для достижения погрешности</string>
+            <string>Количество сохранений:</string>
            </property>
           </widget>
          </item>
-         <item>
-          <layout class="QVBoxLayout" name="params_info">
-           <item>
-            <spacer name="verticalSpacer_2">
-             <property name="orientation">
-              <enum>Qt::Vertical</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>20</width>
-               <height>40</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
-          </layout>
+         <item row="2" column="1">
+          <widget class="QLineEdit" name="input_backups"/>
          </item>
         </layout>
        </item>
@@ -293,7 +275,7 @@
     </property>
     <widget class="QWidget" name="tab">
      <attribute name="title">
-      <string>Функция</string>
+      <string>v(x,y)</string>
      </attribute>
      <widget class="QWidget" name="plot_widget_func" native="true">
       <property name="geometry">
@@ -329,7 +311,7 @@
     </widget>
     <widget class="QWidget" name="tab_3">
      <attribute name="title">
-      <string>Аналитическое решение</string>
+      <string>u(x,y) в узлах сетки</string>
      </attribute>
      <widget class="QWidget" name="plot_widget_u_canvas" native="true">
       <property name="geometry">
@@ -359,15 +341,15 @@
        </rect>
       </property>
       <property name="currentIndex">
-       <number>1</number>
+       <number>0</number>
       </property>
       <widget class="QWidget" name="page_1">
        <property name="geometry">
         <rect>
          <x>0</x>
          <y>0</y>
-         <width>1131</width>
-         <height>469</height>
+         <width>98</width>
+         <height>28</height>
         </rect>
        </property>
        <property name="accessibleName">
@@ -392,8 +374,8 @@
         <rect>
          <x>0</x>
          <y>0</y>
-         <width>1131</width>
-         <height>469</height>
+         <width>98</width>
+         <height>28</height>
         </rect>
        </property>
        <attribute name="label">
@@ -426,15 +408,15 @@
        </rect>
       </property>
       <property name="currentIndex">
-       <number>1</number>
+       <number>0</number>
       </property>
       <widget class="QWidget" name="page_3">
        <property name="geometry">
         <rect>
          <x>0</x>
          <y>0</y>
-         <width>1131</width>
-         <height>469</height>
+         <width>98</width>
+         <height>28</height>
         </rect>
        </property>
        <property name="accessibleName">
@@ -459,8 +441,8 @@
         <rect>
          <x>0</x>
          <y>0</y>
-         <width>1131</width>
-         <height>469</height>
+         <width>98</width>
+         <height>28</height>
         </rect>
        </property>
        <attribute name="label">
@@ -493,15 +475,15 @@
        </rect>
       </property>
       <property name="currentIndex">
-       <number>1</number>
+       <number>0</number>
       </property>
       <widget class="QWidget" name="page_6">
        <property name="geometry">
         <rect>
          <x>0</x>
          <y>0</y>
-         <width>1131</width>
-         <height>469</height>
+         <width>98</width>
+         <height>28</height>
         </rect>
        </property>
        <property name="accessibleName">
@@ -526,8 +508,8 @@
         <rect>
          <x>0</x>
          <y>0</y>
-         <width>1131</width>
-         <height>469</height>
+         <width>98</width>
+         <height>28</height>
         </rect>
        </property>
        <attribute name="label">
